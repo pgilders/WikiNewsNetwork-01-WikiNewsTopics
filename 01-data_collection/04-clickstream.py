@@ -28,25 +28,24 @@ for f in cs_files:
     m = int(f.split('-')[-1][:2])
 
     dfm = pd.read_csv(f, sep='\t', header=None,
-                      names=['prev', 'curr', 'type', 'n_%d-%d' % (y, m)])
-    dfm_links = dfm[(dfm['type'] == 'link') & (~dfm['prev'].isin(pfilter)) &
-                    (~dfm['curr'].isin(pfilter))]
-
+                      names=['prev', 'curr', 'type', 'n_%d-%02d' % (y, m)])
+    print('file read')
     dfall = pd.merge(dfall, dfm, on=['prev', 'curr', 'type'], how='outer')
     del dfm
-    dflinks = pd.merge(dflinks, dfm_links, on=['prev', 'curr'], how='outer')
-    del dfm_links
 
-    dfall['n'] = dfall['n'].fillna(0) + dfall['n_%d-%d' % (y, m)]
-    dfall['n_%d-%d' % (y, m)] = dfall['n_%d-%d' %
-                                      (y, m)] / calendar.monthrange(y, m)[1]
+    dfall['n'] = dfall['n'].fillna(0) + dfall['n_%d-%02d' % (y, m)].fillna(0)
+    dfall['n_%d-%02d' % (y, m)] = dfall['n_%d-%02d' %
+                                        (y, m)] / calendar.monthrange(y, m)[1]
 
-    dflinks['n'] = dflinks['n'].fillna(0) + dflinks['n']
-    dflinks['n_%d-%d' % (y, m)] = dflinks['n_%d-%d' %
-                                          (y, m)] / calendar.monthrange(y, m)[1]
+print('files done')
+dflinks = dfall[(dfall['type'] == 'link') & (~dfall['prev'].isin(pfilter)) &
+                (~dfall['curr'].isin(pfilter))]
 
 # %%
-
-# dfall.to_hdf(BPATH+'clickstream/clickstream_all_201711-201812.h5', key='df')
-# dflinks.to_hdf(BPATH+'clickstream/clickstream_artlinks_201711-201812.h5',
-#                key='df')
+dflinks = dflinks[['n', 'prev', 'curr', 'n_2017-11', 'n_2017-12', 'n_2018-01',
+                   'n_2018-02', 'n_2018-03', 'n_2018-04', 'n_2018-05',
+                   'n_2018-06', 'n_2018-07', 'n_2018-08', 'n_2018-09',
+                   'n_2018-10', 'n_2018-11', 'n_2018-12']]
+dfall.to_hdf(BPATH+'clickstream/clickstream_all_201711-201812.h5', key='df')
+dflinks.to_hdf(BPATH+'clickstream/clickstream_artlinks_201711-201812.h5',
+               key='df')

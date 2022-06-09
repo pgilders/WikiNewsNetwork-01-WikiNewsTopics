@@ -27,9 +27,11 @@ for inpath in pvfiles:
 
     enzone = False
     for line in filein:
-        if line.split(' ')[0] == 'en.m':
+        if line[0] == '#':
+            continue
+        if line[:line.index(' ')] == 'en.m':
             fileout.write(line)
-        elif line.split(' ')[0] in ['en.z', 'en.zero']:
+        elif line[:line.index(' ')] in ['en.z', 'en.zero']:
             if enzone is False:
                 print('settingenzone')
                 enzone = True

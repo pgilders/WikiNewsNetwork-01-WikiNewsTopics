@@ -18,51 +18,53 @@ ProgressBar().register()
 
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
-montharticles = {k: set() for k in pgc.months_range(20171101, 20181231)}
+montharticles = {k: set() for k in pgc.months_range(pd.to_datetime('20171101'),
+                                                    pd.to_datetime('20181231'))}
+allels = glob.glob(BPATH + 'events/*/all_el100NN.h5')
 
-for e in glob.glob(BPATH + 'events/*/all_el100NN.h5'):
+# %%
+for n, e in enumerate(allels):
+    if n % 100 == 0:
+        print('%.2f %%' % (100*n/len(allels)))
     el = pd.read_hdf(e)
     allarts = set(el['prev']) | set(el['curr'])
-    date = e.split('events/')[-1][:8]
+    date = datetime.datetime.strptime(e.split('events/')[-1][:8], '%Y%m%d')
     start = date - datetime.timedelta(days=30)
     stop = date + datetime.timedelta(days=30)
     mr = pgc.months_range(start, stop)
     for m in mr:
         montharticles[m] |= allarts
 
-with open('support_data/montharticles.json') as fp:
-    json.dump(montharticles, fp)
+with open('support_data/montharticles.json', 'w+') as fp:
+    json.dump({k: list(v) for k, v in montharticles.items()}, fp)
     fp.close()
 
 # %%
 
-with open('redir_arts_map.json') as json_data:
+with open('support_data/redir_arts_map.json', 'r') as json_data:
     redir_arts_map = json.load(json_data)
     json_data.close()
 
-with open('megamap.json') as json_data:
+with open('support_data/megamap.json', 'r') as json_data:
     megamap = json.load(json_data)
     json_data.close()
 
 rdarts_rev = {x: k for k, v in redir_arts_map.items() for x in v}
-rdartsflat = list({y for x in redir_arts_map.values() for y in x})
 
-with open('montharticles.json') as fp:
-    montharticles = json.load(fp)
+with open('support_data/montharticles.json', 'r') as fp:
+    montharticles = {k: set(v) for k, v in json.load(fp).items()}
     fp.close()
 
-pvfiles = glob.glob(BPATH + 'pageviews/raw/p*viewen')
-pvfiles = sorted(pvfiles)
+pvfiles = sorted(glob.glob(BPATH + 'pageviews/en/p*viewen'))
 
-
+# %%
 # check underscore/nonunderscore
 # rogue encodings?
-for i in pvfiles[-3:]:
+for i in pvfiles:
     try:
         y = i.split('pagecounts-')[1][:4]
         m = i.split('pagecounts-')[1][5:7]
-        if os.path.exists(BPATH + '/hourly/hourly_t_series_%s.h5'
-                          % (str(y)+str(m))):
+        if os.path.exists(BPATH + '/daily/daily_t_series_%s.h5' % (y+m)):
             print(i, 'exists')
             continue
 
@@ -79,7 +81,8 @@ for i in pvfiles[-3:]:
 
         print('getting marticles')
         marticles = {z for x in montharticles[y+m] for z in
-                     redir_arts_map[megamap.get(x, x).replace(' ', '_')]}
+                     redir_arts_map[megamap.get(x.replace('_', ' '),
+                                                x).replace(' ', '_')]}
 
         print('loccing', len(marticles))
         common = set(marticles) & set(dfr.index)
@@ -100,10 +103,9 @@ for i in pvfiles[-3:]:
         del timeseries
 
         print('saving', agg.T.memory_usage().sum()/1000000000)
-        agg.to_hdf(BPATH + '/hourly/hourly_t_series_%s.h5' %
-                   (str(y)+str(m)), key='df')
-        agg.resample('d').sum().to_hdf(BPATH + '/daily/daily_t_series_%s.h5' %
-                                       (str(y)+str(m)), key='df')
+        agg.to_hdf(BPATH + '/hourly/hourly_t_series_%s.h5' % (y+m), key='df')
+        agg.resample('d').sum().to_hdf(BPATH + '/daily/daily_t_series_%s.h5'
+                                       % (y+m), key='df')
         del agg
     except Exception as ex:
         print(i, ex)

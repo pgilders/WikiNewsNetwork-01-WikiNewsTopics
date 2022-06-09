@@ -43,6 +43,8 @@ if os.path.isfile('support_data/evlsN.h5'):
 else:
     evlsn = pd.DataFrame(columns=['len', 'articles'])
 
+
+# !!! improve getevls to save el / adj (+ts?)
 remaining = sorted(set(events)-set(evlsn.index))
 e2el = {}
 for n in range(0, len(events), 100):
@@ -65,7 +67,7 @@ for n in range(0, len(events), 100):
 
 edf = evlsn.copy()
 edf = edf[edf['len'] > 0].sort_values('len')
-fn = 'simtgraph5NN.npz'
+fn = 'simtgraphNN.npz'
 elf = '/all_el100NN.h5'
 colt = 'coltitlesNN.h5'
 adjname = 'adjNN.h5'

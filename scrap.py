@@ -335,3 +335,185 @@ levi = {x[:8]+'_' + '--'.join(sorted(x[9:-3].split('--'))) for x in levl}
 etl = glob.glob('/Volumes/PGPassport/evtLocal/*')
 trli = {x.split('al/')[-1] for x in etl}
 trli = {x[:8]+'_' + '--'.join(sorted(x[9:-3].split('--'))) for x in trli}
+# %%
+lll
+for fp in glob.glob('/Volumes/PGPassport/DPhil redo data/pageviews/en/pagecounts-*-viewen'):
+    sset = set()
+    with open(fp, 'r') as f:
+        for l in f:
+            sset.add(l.split(' ')[0])
+    print(fp, sset)
+
+# %%
+
+lastday = calendar.monthrange(year, month)[1]
+ts = text.split(',')[:-1]
+pvd = {ord(x[0])-64: x[1:] for x in ts}
+pvds = {datetime.datetime.strptime('-'.join(['%d%02d' % (year, month),
+                                             str(k), str(ord(x[0])-65)]),
+                                   '%Y%m-%d-%H'):
+        int(x[1].replace('?', '0')) if x[1] else 0 for k, v in pvd.items()
+        for x in re.findall('([A-Z])([\?\d]*)', v)}
+
+pd.Series(pvds, index=pd.date_range('%d%02d01' % (year, month),
+                                    '%d%02d%d2300' % (year, month,
+                                                      lastday),
+                                    freq='H')).fillna(0)
+
+
+def text_to_tseries2(text, year, month):
+    lastday = calendar.monthrange(year, month)[1]
+    ts = text.split(',')[:-1]
+    pvd = {ord(x[0])-64: x[1:] for x in ts}
+    pvds = {datetime.datetime.strptime('-'.join(['%d%02d' % (year, month),
+                                                 str(k), str(ord(x[0])-65)]),
+                                       '%Y%m-%d-%H'):
+            int(x[1].replace('?', '0')) if x[1] else 0 for k, v in pvd.items()
+            for x in re.findall('([A-Z])([\?\d]*)', v)}
+
+    return pvds
+# %%
+
+
+def getel(e, csd, megamap, redir_arts_map, eventsdf):
+    try:
+
+        #         date = pd.to_datetime(e[:8])
+        #         start = date-datetime.timedelta(days=30)
+        #         stop = date+datetime.timedelta(days=30)
+
+        #         months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        #         mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+        #               for x in months}
+        #         mrk = frozenset(mr.keys())
+
+        # #        print('reading')
+        #         core = eventsdf.loc[e, 'Articles']
+
+        #         coremm = {megamap.get(x, x).replace(' ', '_') for x in core}
+        #         corerd = {y for x in coremm for y in redir_arts_map.get(x, [x])}
+        #         # return 0
+
+        # #        print('csdf')
+        #         ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
+        #                        (csd[mrk]['prev'].isin(corerd))].copy()
+        #        print('ndf')
+        ndfarticles = get_neighbours_quick(e, csd, redir_arts_map, eventsdf)[1]
+
+#        print('el')
+        el = csd[mrk][(csd[mrk]['curr'].isin(ndfarticles)) &
+                      (csd[mrk]['prev'].isin(ndfarticles))].copy()
+        el[el.columns[2]] = el[el.columns[2]] * \
+            ((start.replace(day=mr[el.columns[2]])-start).days+1)
+        el[el.columns[-2]] = el[el.columns[-2]] * \
+            ((stop-stop.replace(day=1)).days+1)
+        el[el.columns[3:-2]] = el[el.columns[3:-2]
+                                  ].apply(lambda x: mr[x.name]*x)
+        el['n'] = el[el.columns[2:-1]].sum(axis=1)
+        el = el[el['n'] > 100]
+
+        return [e, el]
+    except Exception as ex:
+        print(e, ex)
+        # raise
+        return [e, False, ex]
+
+
+def get_neighbours_quick(e, csd, corerds, eventsdf):
+    try:
+
+        date = pd.to_datetime(e[:8])
+        start = date-datetime.timedelta(days=30)
+        stop = date+datetime.timedelta(days=30)
+
+        months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+              for x in months}
+        mrk = frozenset(mr.keys())
+
+        # print('reading')
+        core = eventsdf.loc[e, 'Articles']
+        # coremm = {corerds.get(x, x).replace(' ', '_') for x in core}
+        corerd = {y for x in core for y in corerds.get(x.replace(' ', '_'),
+                                                       [x.replace(' ', '_')])}
+        # return 0
+
+        # print('csdf')
+        ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
+                       (csd[mrk]['prev'].isin(corerd))]
+        # print('ndf')
+        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
+
+        # # print('el')
+        # el = ndf[(ndf['curr'].isin(ndfarticles)) &
+        #          (ndf['prev'].isin(ndfarticles))].copy()
+
+        # el[el.columns[2]] = el[el.columns[2]] * \
+        #     ((start.replace(day=mr[el.columns[2]])-start).days+1)
+
+        # el[el.columns[-2]] = el[el.columns[-2]] * \
+        #     ((stop-stop.replace(day=1)).days+1)
+
+        # el[el.columns[3:-2]] = el[el.columns[3:-2]
+        #                           ].apply(lambda x: mr[x.name]*x)
+
+        # el['n'] = el[el.columns[2:-1]].sum(axis=1)
+        # el = el[el['n'] > 100]
+
+        # return [e, set(el['prev']) | set(el['curr'])]
+        return [e, ndfarticles]
+    except Exception as ex:
+        print(e, ex)
+        # raise
+        return [e, False, ex]
+# %%
+
+
+mk = set(m_map.keys())
+mv = set(m_map.values())
+an = allneighbours_set
+anm = {m_map.get(x.replace('_', ' '), x).replace(' ', '_') for x in an}
+mmk = set(megamap.keys())
+mmk = set(megamap.values())
+
+rk = set(rd_arts_map.keys())
+rrk = set(redir_arts_map.keys())
+
+# %%
+
+an-rk
+an-rrk
+
+rk-an
+rrk-an
+
+
+# %%
+
+date = pd.to_datetime(e[:8])
+start = date-datetime.timedelta(days=30)
+stop = date+datetime.timedelta(days=30)
+
+months = pgc.months_range(pd.to_datetime(start), pd.to_datetime(stop))
+mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+      for x in months}
+mrk = frozenset(mr.keys())
+
+ndfarticles = get_neighbours_quick(e, csd, redir_arts_map, eventsdf)[1]
+
+#        print('el')
+el = csd[mrk][(csd[mrk]['curr'].isin(ndfarticles)) &
+              (csd[mrk]['prev'].isin(ndfarticles))].copy()
+
+el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
+el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
+el = el.groupby(['prev', 'curr']).sum().reset_index()
+
+el[el.columns[2]] = el[el.columns[2]] * \
+    ((start.replace(day=mr[el.columns[2]])-start).days+1)
+el[el.columns[-2]] = el[el.columns[-2]] * \
+    ((stop-stop.replace(day=1)).days+1)
+el[el.columns[3:-2]] = el[el.columns[3:-2]
+                          ].apply(lambda x: mr[x.name]*x)
+el['n'] = el[el.columns[2:-1]].sum(axis=1)
+el = el[el['n'] > 100]

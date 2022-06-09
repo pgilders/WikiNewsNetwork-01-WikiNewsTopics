@@ -57,7 +57,7 @@ def months_range(start, stop):
 
 
 def getmr(ev):
-    date = pd.to_datetime(ev.split('/')[-1][:8])
+    date = pd.to_datetime(ev[:8])
     start = date-datetime.timedelta(days=30)
     stop = date+datetime.timedelta(days=30)
 
@@ -315,60 +315,13 @@ def wiki_news_articles(months):
 # Redirects
 # =============================================================================
 
-def get_neighbours_quick(e, csd, corerds, eventsdf):
-    try:
-
-        date = pd.to_datetime(e[:8])
-        start = date-datetime.timedelta(days=30)
-        stop = date+datetime.timedelta(days=30)
-
-        months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
-        mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
-              for x in months}
-        mrk = frozenset(mr.keys())
-
-        # print('reading')
-        core = eventsdf.loc[e, 'Articles']
-        # coremm = {corerds.get(x, x).replace(' ', '_') for x in core}
-        corerd = {y for x in core for y in corerds.get(x.replace(' ', '_'),
-                                                       [x.replace(' ', '_')])}
-        # return 0
-
-        # print('csdf')
-        ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
-                       (csd[mrk]['prev'].isin(corerd))]
-        # print('ndf')
-        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
-
-        # # print('el')
-        # el = ndf[(ndf['curr'].isin(ndfarticles)) &
-        #          (ndf['prev'].isin(ndfarticles))].copy()
-
-        # el[el.columns[2]] = el[el.columns[2]] * \
-        #     ((start.replace(day=mr[el.columns[2]])-start).days+1)
-
-        # el[el.columns[-2]] = el[el.columns[-2]] * \
-        #     ((stop-stop.replace(day=1)).days+1)
-
-        # el[el.columns[3:-2]] = el[el.columns[3:-2]
-        #                           ].apply(lambda x: mr[x.name]*x)
-
-        # el['n'] = el[el.columns[2:-1]].sum(axis=1)
-        # el = el[el['n'] > 100]
-
-        # return [e, set(el['prev']) | set(el['curr'])]
-        return [e, ndfarticles]
-    except Exception as ex:
-        print(e, ex)
-        # raise
-        return [e, False, ex]
-
 
 def fix_redirects(articles, existingmap={}):
     tar_chunks = list(chunks(list(set(articles)-set(existingmap.keys())), 50))
     mapping = {}
     for n, i in enumerate(tar_chunks):
-        print('Fixing redirects', round(100*n/len(tar_chunks), 2), '%')
+        if n % 100 == 0:
+            print('Fixing redirects', round(100*n/len(tar_chunks), 2), '%')
         istr = '|'.join(i)
         params = {'titles': istr, 'redirects': ''}
         dat = list(query(params))
@@ -388,6 +341,7 @@ def fix_redirects(articles, existingmap={}):
         for i in mapping.keys():
             if i == v:
                 titlemap[k] = mapping[i]
+                break
 
     return {**existingmap, **titlemap}
 
@@ -396,7 +350,8 @@ def get_redirects(articles, existingrds={}):
     tar_chunks = list(chunks(list(set(articles)-set(existingrds.keys())), 50))
     rd_map = {x.replace(' ', '_'): [x.replace(' ', '_')] for x in articles}
     for n, i in enumerate(tar_chunks):
-        print(100*n/len(tar_chunks))
+        if n % 100 == 0:
+            print('Getting redirects %.2f%%' % (100*n/len(tar_chunks)))
         istr = '|'.join(i)
         params = {'titles': istr, 'prop': 'redirects',
                   'rdlimit': 'max', 'rdnamespace': '0'}
@@ -489,34 +444,140 @@ def centrality(g, comm, nodenamesr):
 # Processing
 # =============================================================================
 
-def getel(e, csd, megamap, redir_arts_map):
+
+def get_neighbours_quick_old(e, csd, corerds, eventsdf, mrk=None):
+    try:
+        if not mrk:
+            date = pd.to_datetime(e[:8])
+            start = date-datetime.timedelta(days=30)
+            stop = date+datetime.timedelta(days=30)
+
+            months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+            mr = {'n_%s-%s' % (x[:4], x[4:]):
+                  monthrange(int(x[:4]), int(x[4:]))[1] for x in months}
+            mrk = frozenset(mr.keys())
+
+        # print('reading')
+        core = eventsdf.loc[e, 'Articles']
+        # coremm = {corerds.get(x, x).replace(' ', '_') for x in core}
+        corerd = {y for x in core for y in corerds.get(x.replace(' ', '_'),
+                                                       [x.replace(' ', '_')])}
+        # return 0
+
+        # print('csdf')
+        ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
+                       (csd[mrk]['prev'].isin(corerd))]
+        # print('ndf')
+        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
+
+        # # print('el')
+        # el = ndf[(ndf['curr'].isin(ndfarticles)) &
+        #          (ndf['prev'].isin(ndfarticles))].copy()
+
+        # el[el.columns[2]] = el[el.columns[2]] * \
+        #     ((start.replace(day=mr[el.columns[2]])-start).days+1)
+
+        # el[el.columns[-2]] = el[el.columns[-2]] * \
+        #     ((stop-stop.replace(day=1)).days+1)
+
+        # el[el.columns[3:-2]] = el[el.columns[3:-2]
+        #                           ].apply(lambda x: mr[x.name]*x)
+
+        # el['n'] = el[el.columns[2:-1]].sum(axis=1)
+        # el = el[el['n'] > 100]
+
+        # return [e, set(el['prev']) | set(el['curr'])]
+        return [e, ndfarticles]
+    except Exception as ex:
+        print(e, ex)
+        # raise
+        return [e, False, ex]
+
+
+def get_neighbours_quick(e, csd, corerds, eventsdf):
     try:
 
-        date = pd.to_datetime(e.split('evtest/')[1][:8])
+        # print('reading')
+        core = eventsdf.loc[e, 'Articles']
+        corerd = {y for x in core for y in corerds.get(x.replace(' ', '_'),
+                                                       [x.replace(' ', '_')])}
+
+        # print('csdf')
+        ndf = csd[(csd['curr'].isin(corerd)) | (csd['prev'].isin(corerd))]
+        # print('ndf')
+        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
+
+        return [e, ndfarticles]
+    except Exception as ex:
+        print(e, ex)
+        # raise
+        return [e, False, ex]
+
+
+def get_neighbours_quick_2(articles, csd, corerds, eventsdf):
+    try:
+
+        # print('reading')
+        corerd = {y for x in articles for y in corerds.get(x.replace(' ', '_'),
+                                                           [x.replace(' ', '_')])}
+
+        # print('csdf')
+        ndf = csd[(csd['curr'].isin(corerd)) | (csd['prev'].isin(corerd))]
+        # print('ndf')
+        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
+
+        return ndfarticles
+    except Exception as ex:
+        print(ex)
+        # raise
+        return [False, ex]
+
+
+def getel(e, csd, megamap, redir_arts_map, rdarts_rev, eventsdf):
+    try:
+
+        #         date = pd.to_datetime(e[:8])
+        #         start = date-datetime.timedelta(days=30)
+        #         stop = date+datetime.timedelta(days=30)
+
+        #         months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        #         mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+        #               for x in months}
+        #         mrk = frozenset(mr.keys())
+
+        # #        print('reading')
+        #         core = eventsdf.loc[e, 'Articles']
+
+        #         coremm = {megamap.get(x, x).replace(' ', '_') for x in core}
+        #         corerd = {y for x in coremm for y in redir_arts_map.get(x, [x])}
+        #         # return 0
+
+        # #        print('csdf')
+        #         ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
+        #                        (csd[mrk]['prev'].isin(corerd))].copy()
+        #        print('ndf')
+
+        date = pd.to_datetime(e[:8])
         start = date-datetime.timedelta(days=30)
         stop = date+datetime.timedelta(days=30)
 
         months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
-        mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]),
-                                                     int(x[4:]))[1] for x in months}
+        mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+              for x in months}
         mrk = frozenset(mr.keys())
 
-#        print('reading')
-        core = set(pd.read_csv(e+'/core.tsv', sep='\t', header=None)[0])
-
-        coremm = {megamap.get(x, x).replace(' ', '_') for x in core}
-        corerd = {y for x in coremm for y in redir_arts_map.get(x, [x])}
-        # return 0
-
-#        print('csdf')
-        ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
-                       (csd[mrk]['prev'].isin(corerd))].copy()
-#        print('ndf')
-        ndfarticles = set(ndf['curr']) | set(ndf['prev'])
+        ndfarticles = get_neighbours_quick(e, csd, redir_arts_map, eventsdf,
+                                           mrk)[1]
 
 #        print('el')
         el = csd[mrk][(csd[mrk]['curr'].isin(ndfarticles)) &
                       (csd[mrk]['prev'].isin(ndfarticles))].copy()
+
+        # map to rdtitle and group sum
+        el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
+        el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
+        el = el.groupby(['prev', 'curr']).sum().reset_index()
+
         el[el.columns[2]] = el[el.columns[2]] * \
             ((start.replace(day=mr[el.columns[2]])-start).days+1)
         el[el.columns[-2]] = el[el.columns[-2]] * \
@@ -549,9 +610,7 @@ def getevls(i, edf, tsl, megamap, day_offset=0, elp='/all_el100.h5'):
         mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
               for x in months}
 
-        core = [megamap.get(x, x).replace(' ', '_') for x in pd.read_csv(
-            i+'/core.tsv', sep='\t', header=None)[0]]
-        coreu = {x.replace('_', ' ') for x in core}
+        core = [megamap.get(x, x) for x in eventsdf.loc[e, 'Articles']]
 
         el = pd.read_hdf(i+elp)
         el['prev'] = el['prev'].str.replace('_', ' ').map(megamap)
@@ -572,8 +631,8 @@ def getevls(i, edf, tsl, megamap, day_offset=0, elp='/all_el100.h5'):
 
         el = el[el['n'] > 100]
 
-        articles = set(el['prev'][el['curr'].isin(coreu)]) | set(
-            el['curr'][el['prev'].isin(coreu)]) | coreu
+        articles = set(el['prev'][el['curr'].isin(core)]) | set(
+            el['curr'][el['prev'].isin(core)]) | core
 
         el = el[el['prev'].isin(articles) & el['curr'].isin(articles)]
 
