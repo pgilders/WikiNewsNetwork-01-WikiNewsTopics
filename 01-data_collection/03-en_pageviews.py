@@ -6,14 +6,16 @@ Created on Tue May 31 14:05:08 2022
 @author: Patrick
 """
 
-# filter to en pageviews
-
-
 import glob
+
+# %% Load data
+
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
 summfile = open(BPATH+'pageviews/raw/summ.txt', "w+")
 pvfiles = sorted(glob.glob(BPATH+'pageviews/raw/pagecounts-*-views-ge-5'))
+
+# %% keep en lines only
 
 for inpath in pvfiles:
     print(inpath)

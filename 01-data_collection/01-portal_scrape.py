@@ -7,6 +7,7 @@ Created on Thu May 19 15:58:19 2022
 """
 import pandas as pd
 import os
+import unicodedata
 import functions1 as pgc
 
 # %% Scrape portal
@@ -52,9 +53,13 @@ for c in pgc.chunks(list(allarticles), 50):
 sdf['Articles'] = sdf['Articles'].apply(lambda x: [rdmap.get(y, y) for y in x
                                                    if rdmap.get(y, y) in idmap])
 
-sdf.index = sdf.apply(lambda x: '_'.join([x['Date'].strftime('%Y%m%d'),
-                                          '--'.join(x['Articles'])[:237],
-                                          'CS']), axis=1)
+sdf.index = sdf.apply(lambda x:
+                      unicodedata.normalize('NFD',
+                                            '_'.join([
+                                                x['Date'].strftime('%Y%m%d'),
+                                                '--'.join(x['Articles'])[:237],
+                                                'CS']
+                                            ).replace('/', ':')), axis=1)
 
 sdf = sdf[~sdf.index.duplicated(keep='first')]
 
@@ -69,9 +74,8 @@ evpath = '/Volumes/PGPassport/DPhil redo data/events/'
 for i in sdf.index:
     if len(i) == 12:
         continue
-    if not os.path.exists(evpath+i.replace('/', ':')):
-        os.mkdir(evpath+i.replace('/', ':'))
+    if not os.path.exists(evpath+i):
+        os.mkdir(evpath+i)
     pd.Series({x: idmap[x] for x in sdf.loc[i, 'Articles']
-               if x in idmap}).to_csv('%s%s/core.tsv' % (evpath,
-                                                         i.replace('/', ':')),
+               if x in idmap}).to_csv('%s%s/core.tsv' % (evpath, i),
                                       sep='\t', header=False)

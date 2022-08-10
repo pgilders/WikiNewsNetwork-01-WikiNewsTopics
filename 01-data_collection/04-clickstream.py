@@ -5,11 +5,12 @@ Created on Tue May 31 14:09:23 2022
 
 @author: Patrick
 """
-# clickstream (download + ?) combine
 
 import glob
 import pandas as pd
 import calendar
+
+# %% load data
 
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
@@ -18,7 +19,8 @@ cs_files = sorted(glob.glob(BPATH+'clickstream/clickstream-enwiki-*.tsv'))
 dfall = pd.DataFrame(columns=['prev', 'curr', 'type', 'n'])
 dflinks = pd.DataFrame(columns=['prev', 'curr', 'n'])
 
-# %%
+# %% combine clickstream months
+
 pfilter = ['other-empty', 'other-search', 'other-other', 'other-external'
            'other-internal', 'Main_Page', 'Hyphen-minus']
 
@@ -41,7 +43,8 @@ print('files done')
 dflinks = dfall[(dfall['type'] == 'link') & (~dfall['prev'].isin(pfilter)) &
                 (~dfall['curr'].isin(pfilter))]
 
-# %%
+# %% Save dfs
+
 dflinks = dflinks[['n', 'prev', 'curr', 'n_2017-11', 'n_2017-12', 'n_2018-01',
                    'n_2018-02', 'n_2018-03', 'n_2018-04', 'n_2018-05',
                    'n_2018-06', 'n_2018-07', 'n_2018-08', 'n_2018-09',

@@ -469,15 +469,16 @@ def get_neighbours_quick(e, csd, corerds, eventsdf):
 # %%
 
 
-mk = set(m_map.keys())
-mv = set(m_map.values())
-an = allneighbours_set
-anm = {m_map.get(x.replace('_', ' '), x).replace(' ', '_') for x in an}
+# mk = set(m_map.keys())
+# mv = set(m_map.values())
+# an = allneighbours_set
+# anm = {m_map.get(x.replace('_', ' '), x).replace(' ', '_') for x in an}
 mmk = set(megamap.keys())
 mmk = set(megamap.values())
 
-rk = set(rd_arts_map.keys())
+# rk = set(rd_arts_map.keys())
 rrk = set(redir_arts_map.keys())
+
 
 # %%
 
@@ -517,3 +518,467 @@ el[el.columns[3:-2]] = el[el.columns[3:-2]
                           ].apply(lambda x: mr[x.name]*x)
 el['n'] = el[el.columns[2:-1]].sum(axis=1)
 el = el[el['n'] > 100]
+# %%
+
+errors = []
+eventsdf['MR'] = eventsdf.apply(lambda x: frozenset(pgc.getmr(x.name).keys()),
+                                axis=1)
+mrset = set(eventsdf['MR'])
+
+for mn, mrk in enumerate(mrset):
+    print('\nMonth keys: %.2f %%\n==================' % (100*mn/len(mrset)))
+    mr = {x: monthrange(int(x[2:6]), int(x[7:9]))[1] for x in mrk}
+    csd = mcsdf[['prev', 'curr']+sorted(mr)].copy().fillna(0)
+    for k, v in mr.items():
+        csd[k] = csd[k]*v
+    csd['n'] = csd[csd.columns[3:]].sum(axis=1)
+    csd = csd[csd['n'] > 0]
+    # el = el[el['n'] > 100]
+    for k, v in mr.items():
+        csd[k] = csd[k]/v
+
+    events = list(eventsdf[(eventsdf['MR'] == mrk) &
+                           (eventsdf['Articles'].str.len() > 0)].index)
+
+    # att = pgc.getel_2(events[0], csd, redir_arts_map, rdarts_rev, eventsdf)
+    # if len(att)==3:
+    #     print(att, mrk)
+
+    print('%d Events' % len(events))
+    for x in events:
+        e, elz = pgc.getel_2(x, csd, redir_arts_map, rdarts_rev, eventsdf)
+        elarts = set(elz['prev']) | set(elz['curr'])
+        if len(elarts-rrk) > 0:
+            errors.append(e)
+            raise
+
+    del csd
+
+# %%
+
+date = pd.to_datetime(e[:8])
+start = date-datetime.timedelta(days=30)
+stop = date+datetime.timedelta(days=30)
+
+months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+      for x in months}
+
+
+el2 = pgc.get_neighbours_quick(x, csd, redir_arts_map, eventsdf)
+el2a = pgc.get_neighbours_quick_2(
+    eventsdf.loc[x, 'Articles'], csd, redir_arts_map, eventsdf)
+el2c = pgc.get_neighbours_quick_2(
+    eventsdf.loc[x, 'Articles'], csd, crd, eventsdf)
+
+
+ndfarticles = el2a
+el = csd[(csd['curr'].isin(ndfarticles)) &
+         (csd['prev'].isin(ndfarticles))].copy()
+
+# map to rdtitle and group sum
+el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x))
+el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x))
+el = el.groupby(['prev', 'curr']).sum().reset_index()
+
+# Weighted sum of edgeweights
+el[el.columns[2]] = el[el.columns[2]] * \
+    ((start.replace(day=mr[el.columns[2]])-start).days+1)
+el[el.columns[-2]] = el[el.columns[-2]] * \
+    ((stop-stop.replace(day=1)).days+1)
+el[el.columns[3:-2]] = el[el.columns[3:-2]
+                          ].apply(lambda x: mr[x.name]*x)
+el['n'] = el[el.columns[2:-1]].sum(axis=1)
+el = el[el['n'] > 100]
+
+
+# %%
+
+mset = {y for x in montharticles.values() for y in x}
+aset = allneighbours_set
+
+asetmm = {megamap.get(x.replace('_', ' '), x).replace(' ', '_') for x in aset}
+asetrd = {rdarts_rev.get(x, x) for x in aset}
+# %%
+
+rd_arts_map_topup = pgc.get_redirects({megamap.get(x.replace('_', ' '),
+                                                   x.replace('_', ' '))
+                                       for x in aset - set(rdarts_rev2.keys())})
+# %%
+
+with open('support_data/megamap3a.json', 'w+') as f:
+    json.dump(megamap, f)
+
+with open('support_data/redir_arts_map3a.json', 'w+') as f:
+    json.dump(rd_arts_map2, f)
+
+    # %%
+
+adjs = glob.glob('/Volumes/PGPassport/DPhil redo data/events/*/adjNN.h5')
+# %%
+redo '/Volumes/PGPassport/DPhil redo data/events/20180201_United States Secretary of State--Rex Tillerson--Mexico--President of Mexico--Enrique Peña Nieto--Luis Videgaray Caso_CS/adjNN.h5'
+
+# %%
+for n, a in enumerate(adjs):
+    if n < 1248:
+        continue
+    print(n)
+    adj = pd.read_hdf(a)
+    adj = (adj | adj.T).astype(int)
+    adj.to_hdf(a, key='df')
+
+
+# %%
+ats = []
+for n, a in enumerate(adjs):
+    if n < 2611:
+        continue
+    print(n)
+    adj = pd.read_hdf(a)
+    ts = pd.read_hdf(a.replace('adjNN', 'tsNN'))
+    if set(adj.columns)-set(ts.columns):
+        ats.append(a)
+        print('error', a)
+    elif set(ts.columns)-set(adj.columns):
+        print('subset')
+        ts[adj.columns].to_hdf(a.replace('adjNN', 'tsNN'), key='df')
+
+# %%
+
+
+adj = np.array([[0, 1, 1],
+                [1, 0, 0],
+                [1, 0, 0]])
+
+
+tse = np.array([[1, 2, 5, 3, 2],
+                [1, 3, 4, 2, 2],
+                [3, 1, 0, 1, 2]])
+# %%
+
+t0 = time.time()
+pcs = rolling_pearson_ixs(tsxv, adj)
+print(time.time()-t0)
+
+t0 = time.time()
+pcs = np.triu(adj.values)*np.array([pgc.scoreretlist2(x, tsxv)
+                                    for x in range(0, len(tsxv)-6)])
+print(time.time()-t0)
+
+# %%
+
+# %%
+core = [rdarts_rev.get(x.replace(' ', '_'), x.replace(' ', '_')) for x in
+        pd.read_csv(BPATH+'events/'+e+'/core.tsv', sep='\t', header=None)[0]]
+articles = pd.read_hdf(BPATH+'events/' + e + '/coltitlesNN.h5', key='df')
+glist, igname = read_t_graph(BPATH+'events/'+e)
+membdf = temporal_community_detection(glist, 0.1)
+evrs = extract_event_reactions(membdf, igname, core, articles)
+tcd = community_centralities(glist, igname, membdf, evrs)
+
+
+def read_ev_data(e):
+    core = [rdarts_rev.get(x.replace(' ', '_'), x.replace(' ', '_')) for x in
+            pd.read_csv(BPATH+'events/'+e+'/core.tsv', sep='\t', header=None)[0]]
+    articles = pd.read_hdf(BPATH+'events/' + e + '/coltitlesNN.h5', key='df')
+    glist, igname = read_t_graph(BPATH+'events/'+e)
+    return core, articles, glist, igname
+
+
+def event_reactions(core, articles, glist, igname, res):
+    membdf = temporal_community_detection(glist, res)
+    evrs = extract_event_reactions(membdf, igname, core, articles)
+    return membdf, evrs
+
+
+def event_reactions_tcds(core, articles, glist, igname, res):
+    membdf = temporal_community_detection(glist, res)
+    evrs = extract_event_reactions(membdf, igname, core, articles)
+    tcd = community_centralities(glist, igname, membdf, evrs)
+    return membdf, evrs, tcd
+
+
+# %%
+mid = len(membdf.columns)//2
+evrs = {}
+t0comms = membdf.loc[set(core) & set(articles), mid]
+membdfc = membdf.loc[set(core) & set(articles)].T
+
+cmd = {x: [] for x in set(t0comms.dropna().values)}
+for x in t0comms.dropna().iteritems():
+    cmd[x[1]].append(x[0])
+
+for k, c in cmd.items():
+    segt = ((membdfc[c] == k).sum(axis=1) > .5*len(c))
+    tf = segt == segt.shift(1)
+    diff = np.append(np.where(~tf.values)[0] - mid,
+                     len(membdf.columns) - 1)
+    beg = mid + diff[diff <= 0].max()
+    end = mid + diff[diff > 0].min() - 1
+    t = membdf.T.loc[beg:end][membdf.T.loc[beg:end] == k].T.dropna(how='all')
+    gg = {x: set(t[x].dropna().index) for x in t}
+    js = pd.Series({k: jac(set(gg[mid]), set(v))
+                    for k, v in gg.items()})
+    t = t[js[js > .5].index].dropna(how='all')
+    evrs['---'.join(sorted(c))] = t
+
+# uniquify sets
+for n, (k, v) in enumerate(evrs.items()):
+    for m, (l, u) in enumerate(evrs.items()):
+        if m > n:
+            for s in set(v.index) & set(u.index):
+                f1 = len(v.loc[s].dropna())/len(v.loc[s])
+                f2 = len(u.loc[s].dropna())/len(u.loc[s])
+                if f1 > f2:
+                    evrs[l] = evrs[l].drop(s)
+                elif f2 > f1:
+                    evrs[k] = evrs[k].drop(s)
+                elif len(v) < len(u):
+                    evrs[l] = evrs[l].drop(s)
+                else:
+                    evrs[k] = evrs[k].drop(s)
+# %%
+
+ready = set([x.split('/')[-2] for x in
+             glob.glob(BPATH + 'events/*/simtgraphixNN.npz')])
+finished = set([x.split('/')[-2] for x in
+                glob.glob(BPATH+'events/*/tcweights.h5')])
+copied = set([x.split('/')[-2] for x in
+              glob.glob(BPATH+'events2/*/coltitlesNN.h5')])
+err = []
+for n, e in enumerate((ready-finished)-copied):
+    print(n/len((ready-finished)-copied))
+    try:
+        try:
+            os.mkdir(BPATH+'events2/'+e)
+        except FileExistsError:
+            print('folder exists')
+        for f in ['/core.tsv', '/simtgraphelNN.npz', '/simtgraphixNN.npz', '/coltitlesNN.h5']:
+            shutil.copy(BPATH+'events/'+e+f, BPATH+'events2/'+e+f)
+    except Exception as ex:
+        print(ex)
+        err.append((n, e, ex))
+# %%
+
+comp_folders = glob.glob('/Users/Patrick/Downloads/ev out/*')
+dupes = []
+cerror = []
+for n, f in enumerate(comp_folders):
+    print(n/len(comp_folders))
+    dest = f.replace('/Users/Patrick/Downloads/ev out/',
+                     '/Volumes/PGPassport/DPhil redo data/events/')
+    if any([dest+x in glob.glob(dest+'/*') for x in ['/evrs.h5', '/membdf.h5',
+                                                     '/tcweights.h5']]):
+        dupes.append(f)
+    else:
+        for x in ['/evrs.h5', '/membdf.h5', '/tcweights.h5']:
+            try:
+                shutil.copy(f+x, dest+x)
+            except:
+                print(f+x)
+                cerror.append(f+x)
+# %%
+comp_folders = glob.glob('/Users/Patrick/Downloads/ev out/*')
+e2f = glob.glob('/Volumes/PGPassport/DPhil redo data/events2/*')
+e2c = [f.replace('/Users/Patrick/Downloads/ev out/',
+                 '/Volumes/PGPassport/DPhil redo data/events2/') for f in comp_folders]
+# %%
+
+namedict = {n: x for n, x in enumerate(sorted(set(e2f)-set(e2c)))}
+with open('support_data/rem_folders.json', 'w+') as f:
+    json.dump(namedict, f)
+# %%
+namedictrev = {v: k for k, v in namedict.items()}
+
+for k, v in namedictrev.items():
+    os.rename(k, '/'.join(k.split('/')[:-1])+'/'+str(v))
+
+
+# %%
+
+nf = glob.glob('/Users/Patrick/Downloads/events_out_N/*')
+
+dupes = []
+cerror = []
+for n, f in enumerate(nf):
+    print(n/len(nf))
+    dest = namedict[f.split('/')[-1]].replace('/events2/', '/events/')
+
+    if any([dest+x in glob.glob(dest+'/*') for x in ['/evrs.h5', '/membdf.h5',
+                                                     '/tcweights.h5']]):
+        dupes.append(f)
+    else:
+        for x in ['/evrs.h5', '/membdf.h5', '/tcweights.h5']:
+            try:
+                shutil.copy(f+x, dest+x)
+            except:
+                print(f+x)
+                cerror.append(f+x)
+# %%
+
+eventsdfs = sorted([unicodedata.normalize('NFD', x) for x in
+                    pd.read_hdf('support_data/eventsdf2.h5', key='df').index.str.replace('/', ':')])
+edfs3 = sorted(pd.read_hdf('support_data/eventsdf3.h5',
+               key='df').index.str.replace('/', ':'))
+folders = sorted([x.split('/')[-1] for x in glob.glob(BPATH + 'events/*')])
+evlsns = sorted([x for x in
+                 pd.read_hdf('support_data/evlsN2.h5', key='df').index])
+simtgraphels = sorted([x.split('/')[-2]
+                      for x in glob.glob(BPATH + 'events/*/simtgraphelNN.npz')])
+membdfs = sorted([x.split('/')[-2]
+                 for x in glob.glob(BPATH + 'events/*/membdf.h5')])
+tcweights = sorted([x.split('/')[-2]
+                   for x in glob.glob(BPATH + 'events/*/tcweights.h5')])
+wjacs = sorted([x.split('/')[-2]
+               for x in glob.glob(BPATH + 'events/*/wjac.h5')])
+
+# %%
+
+df_no_fol = sorted(set(edfs3) - set(evlsns))
+
+fol_no_stg = sorted(set(folders)-set(simtgraphels)
+                    )  # no nodes at filter stage 1
+stg_no_mdf = sorted(set(simtgraphels)-set(membdfs))
+membdf_no_tcw = sorted(set(membdfs)-set(tcweights))  # all empty graphs
+
+
+# %%
+
+
+edf = evlsn.loc[membdf_no_tcw].sort_values('len')
+
+print(len(edf))
+res = 0.25
+try:
+
+    out1 = [pgc.read_ev_data(BPATH + 'events/' + x, rdarts_rev)
+            for x in edf.index]
+    out2 = [pgc.ev_reactions_tcd(*x, res) for x in out1 if len(x) == 4]
+
+    names = [BPATH+'events/'+x for m, x in
+             enumerate(edf.index) if len(out1[m]) == 4]
+    for m, i in enumerate(out2):
+        try:
+            i[0].to_hdf('%s/membdf.h5' % names[m], key='df')
+            for k, v in i[1].items():
+                v.to_hdf('%s/evrs.h5' % names[m], key=k)
+            for k, v in i[2].items():
+                v.to_hdf('%s/tcweights.h5' % names[m], key=k)
+        except Exception as ex:
+            errors.append((n, m, ex))
+            print(ex)
+except Exception as ex:
+    errors.append((n, ex))
+    print(ex)
+
+# %%
+
+with open('support_data/rem_folders.json') as json_data:
+    remfold = json.load(json_data)
+    json_data.close()
+# %%
+
+rfv = sorted([x.split('/')[-1] for x in remfold.values()])
+
+# %%
+ldists = pd.DataFrame(index=sorted(set(evlsns) - set(eventsdfs)),
+                      columns=sorted(set(eventsdfs) - set(evlsns)))
+
+for i in sorted(set(evlsns) - set(eventsdfs)):
+    for j in sorted(set(eventsdfs) - set(evlsns)):
+        ldists.loc[i, j] = levenshtein_distance(i, j)/max(len(i), len(j))
+# %%
+
+ddl = len(DD)
+ddcl = len(DDC)
+pil = len(pi)
+pipl = len(pip)
+Gl = len(G.vs)
+wjsl = len(wjs)
+
+# %%
+
+ddc_keys = {x.replace(BPATH+'events/', '') for x in DDC.keys()}
+wjs_keys = set(wjs.keys())
+# %%
+for f in sorted(ddc_keys-wjs_keys)[1:]:
+    os.remove(BPATH + 'events/' + f.split('_CS')[0]+'_CS' + '/wjac.h5')
+    os.remove(BPATH + 'events/' + f.split('_CS')[0]+'_CS' + '/jac.h5')
+# %%
+
+jll2 = []
+for n in range(2000000, 11000000, int(1E6)):
+    if n % 10000000 == 0:
+        print('%.2f %%' % (100*n/11000000))
+    with open(BPATH + 'evr_similarities/jacsw%.1f.json' % (n/1E6), 'r') as f:
+        jll2.extend(json.load(f))
+
+# %%
+
+jll0 = []
+for n in range(2000000, 11000000, int(1E6)):
+    if n % 10000000 == 0:
+        print('%.2f %%' % (100*n/11000000))
+    with open(BPATH + 'jacsw%.1f.json' % (n/1E6), 'r') as f:
+        jll0.extend(json.load(f))
+
+# %%
+
+(np.array(jll0)-np.array(jll2)).max()
+# %%
+o0 = []
+o2 = []
+for n, x in enumerate(DD):
+    if n % 500 == 0:
+        print('%.2f %%' % (100*n/len(DD)))
+    with pd.HDFStore(x+'/tcweights.h5', mode='r') as hdf:
+        for k in hdf.keys():
+            o0.append(x + k)
+            o2.append(x + '/' + k[1:].replace('/', ':'))
+
+# %%
+so0 = sorted(o0)
+so2 = sorted(o2)
+[(so0[n], so2[n]) for n in range(len(o0))
+ if so0[n].replace(':', '/') != so2[n].replace(':', '/')]
+
+# %%
+n1 = pd.read_hdf('support_data/topic_labels_1.h5')
+n2 = pd.read_hdf('support_data/topic_labels_2.h5')
+
+# %%
+
+
+def colourer(x, simdf):
+    """
+    Colours Latex cell based on similarity quantile.
+
+    Parameters
+    ----------
+    x : str
+        Name of topic.
+    simdf : DataFrame
+        Dataframe with similarities.
+
+    Returns
+    -------
+    str
+        Latex code with colour.
+
+    """
+    if x == '?':
+        return None
+    ou = simdf[simdf['outlabel'].str.replace('*', '').str.replace('^', '')
+               == x]['SS_score']
+    lq, mm, uq = simdf['SS_score'].quantile([0.25, 0.5, 0.75])
+    if len(ou) != 1:
+        print(x)
+        raise
+    if ou.iloc[0] > uq:
+        return '\\cellcolor{green}' + x.replace('&', '\\&')
+    elif ou.iloc[0] > mm:
+        return '\\cellcolor{yellow}' + x.replace('&', '\\&')
+    elif ou.iloc[0] > lq:
+        return '\\cellcolor{orange}' + x.replace('&', '\\&')
+    else:
+        return '\\cellcolor{red}' + x.replace('&', '\\&')

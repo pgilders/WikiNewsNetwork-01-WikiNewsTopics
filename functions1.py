@@ -21,6 +21,9 @@ import leidenalg as la
 import numpy as np
 import requests
 import re
+import sklearn.metrics
+from clusim.clustering import Clustering
+import clusim.sim as sim
 from bs4 import BeautifulSoup as bs
 
 
@@ -178,10 +181,10 @@ def colourer(x, simdf):
     """
     if x == '?':
         return None
-    ou = simdf[simdf['Name'] == x][0.6065306597126334]
-    LQ, MM, UQ = simdf[0.6065306597126334].quantile([0.25, 0.5, 0.75])
+    ou = simdf[simdf['outlabel'] == x]['SS_score']
+    LQ, MM, UQ = simdf['SS_score'].quantile([0.25, 0.5, 0.75])
     if len(ou) != 1:
-        print(x)
+        print(x, len(ou))
         raise
     if ou.iloc[0] > UQ:
         return '\\cellcolor{green}' + x.replace('&', '\\&')
@@ -514,7 +517,7 @@ def get_neighbours_quick(e, csd, corerds, eventsdf):
         return [e, False, ex]
 
 
-def get_neighbours_quick_2(articles, csd, corerds, eventsdf):
+def get_neighbours_quick_2(articles, csd, corerds):
     try:
 
         # print('reading')
@@ -566,18 +569,18 @@ def getel(e, csd, megamap, redir_arts_map, rdarts_rev, eventsdf):
               for x in months}
         mrk = frozenset(mr.keys())
 
-        ndfarticles = get_neighbours_quick(e, csd, redir_arts_map, eventsdf,
-                                           mrk)[1]
+        core = eventsdf.loc[e, 'Articles']
+        ndfarticles = get_neighbours_quick_2(core, csd, redir_arts_map)
 
-#        print('el')
-        el = csd[mrk][(csd[mrk]['curr'].isin(ndfarticles)) &
-                      (csd[mrk]['prev'].isin(ndfarticles))].copy()
+        el = csd[(csd['curr'].isin(ndfarticles)) &
+                 (csd['prev'].isin(ndfarticles))].copy()
 
         # map to rdtitle and group sum
-        el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
-        el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x)).dropna()
+        el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x))
+        el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x))
         el = el.groupby(['prev', 'curr']).sum().reset_index()
 
+        # Weighted sum of edgeweights
         el[el.columns[2]] = el[el.columns[2]] * \
             ((start.replace(day=mr[el.columns[2]])-start).days+1)
         el[el.columns[-2]] = el[el.columns[-2]] * \
@@ -585,6 +588,68 @@ def getel(e, csd, megamap, redir_arts_map, rdarts_rev, eventsdf):
         el[el.columns[3:-2]] = el[el.columns[3:-2]
                                   ].apply(lambda x: mr[x.name]*x)
         el['n'] = el[el.columns[2:-1]].sum(axis=1)
+        el = el[el['n'] > 100]
+
+        return [e, el]
+    except Exception as ex:
+        print(e, ex)
+        # raise
+        return [e, False, ex]
+
+
+def getel_2(e, csd, redir_arts_map, rdarts_rev, eventsdf):
+    try:
+
+        #         date = pd.to_datetime(e[:8])
+        #         start = date-datetime.timedelta(days=30)
+        #         stop = date+datetime.timedelta(days=30)
+
+        #         months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        #         mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+        #               for x in months}
+        #         mrk = frozenset(mr.keys())
+
+        # #        print('reading')
+        #         core = eventsdf.loc[e, 'Articles']
+
+        #         coremm = {megamap.get(x, x).replace(' ', '_') for x in core}
+        #         corerd = {y for x in coremm for y in redir_arts_map.get(x, [x])}
+        #         # return 0
+
+        # #        print('csdf')
+        #         ndf = csd[mrk][(csd[mrk]['curr'].isin(corerd)) |
+        #                        (csd[mrk]['prev'].isin(corerd))].copy()
+        #        print('ndf')
+
+        date = pd.to_datetime(e[:8])
+        start = date-datetime.timedelta(days=30)
+        stop = date+datetime.timedelta(days=30)
+
+        months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+              for x in months}
+
+        core = eventsdf.loc[e, 'Articles']
+        ndfarticles = get_neighbours_quick_2(core, csd, redir_arts_map)
+
+        el = csd[(csd['curr'].isin(ndfarticles)) &
+                 (csd['prev'].isin(ndfarticles))].copy()
+
+        # map to rdtitle and group sum
+        el['prev'] = el['prev'].apply(lambda x: rdarts_rev.get(x, x))
+        el['curr'] = el['curr'].apply(lambda x: rdarts_rev.get(x, x))
+        el = el.groupby(['prev', 'curr']).sum().reset_index()
+
+        # Weighted sum of edgeweights
+        el[el.columns[2]] = el[el.columns[2]] * \
+            ((start.replace(day=mr[el.columns[2]])-start).days+1)
+        el[el.columns[-2]] = el[el.columns[-2]] * \
+            ((stop-stop.replace(day=1)).days+1)
+        el[el.columns[3:-2]] = el[el.columns[3:-2]
+                                  ].apply(lambda x: mr[x.name]*x)
+        el['n'] = el[el.columns[2:-1]].sum(axis=1)
+
+        # Filter to >100 pv
         el = el[el['n'] > 100]
 
         return [e, el]
@@ -658,29 +723,68 @@ def getevls(i, edf, tsl, megamap, day_offset=0, elp='/all_el100.h5'):
         return {i: ex}
 
 
-def csgraph(i, articles, megamap, start, stop, elf='/all_el100.h5',
-            day_offset=0):
+def getevls_2(i, edf, tsl, rdarts_rev, epath, pvlimit=1000, elp='/all_el100NNN.h5'):
 
-    months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
-    mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
-          for x in months}
+    try:
+        if i in edf.index:
+            return ({i: 'got'},)
 
-    el = pd.read_hdf(i+elf)
-    el['prev'] = el['prev'].str.replace('_', ' ').map(megamap)
-    el['curr'] = el['curr'].str.replace('_', ' ').map(megamap)
-    el = el[el['prev'].isin(articles)]
-    el = el[el['curr'].isin(articles)]
+        date = datetime.datetime.strptime(i[:8], '%Y%m%d')
+        start = date-datetime.timedelta(days=30)
+        stop = date+datetime.timedelta(days=30)
 
-    el[el.columns[2]] = el[el.columns[2]] * \
-        ((start.replace(day=mr[el.columns[2]])-start).days+1)
-    el[el.columns[-2]] = el[el.columns[-2]] * \
-        ((stop-stop.replace(day=1)).days+1)
-    el[el.columns[3:-2]] = el[el.columns[3:-2]
-                              ].apply(lambda x: mr[x.name]*x)
-    el['n'] = el[el.columns[3:]].sum(axis=1)
-    el = el[el['n'] > 100]
+        # print('mc')
+        months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        el = pd.read_hdf(epath + i + elp)
 
-    return el
+        articles = set(el['prev']) | set(el['curr'])
+
+        # print('filesread')
+        ts = pd.concat([y[sorted(articles & set(y.columns))] for y in
+                        [tsl[z] for z in months]],
+                       sort=True).fillna(0).loc[start:stop]
+
+        ts = ts[ts.sum()[ts.sum() > pvlimit].index]
+
+        el = el[(el['prev'].isin(ts.columns)) & (el['curr'].isin(ts.columns))]
+
+        articles = sorted(set(el['prev']) | set(el['curr']))
+        adj = (~el.pivot(index='prev', columns='curr', values='n').isna()
+               ).reindex(columns=articles, index=articles, fill_value=False)
+        adj = (adj | adj.T).astype(int)
+
+        return {i: {'len': len(articles), 'articles': articles}}, adj, ts[articles]
+
+    except KeyboardInterrupt:
+        raise
+
+    except Exception as ex:
+        #        raise
+        print('ex')
+        return ({i: ex},)
+
+
+# def csgraph(i, articles, start, stop, elf='/all_el100.h5',
+#             day_offset=0):
+
+#     months = months_range(pd.to_datetime(start), pd.to_datetime(stop))
+#     mr = {'n_%s-%s' % (x[:4], x[4:]): monthrange(int(x[:4]), int(x[4:]))[1]
+#           for x in months}
+
+#     el = pd.read_hdf(i+elf)
+#     el = el[el['prev'].isin(articles)]
+#     el = el[el['curr'].isin(articles)]
+
+#     el[el.columns[2]] = el[el.columns[2]] * \
+#         ((start.replace(day=mr[el.columns[2]])-start).days+1)
+#     el[el.columns[-2]] = el[el.columns[-2]] * \
+#         ((stop-stop.replace(day=1)).days+1)
+#     el[el.columns[3:-2]] = el[el.columns[3:-2]
+#                               ].apply(lambda x: mr[x.name]*x)
+#     el['n'] = el[el.columns[3:]].sum(axis=1)
+#     el = el[el['n'] > 100]
+
+#     return el
 
 
 def scoreretlist(n, tsx):
@@ -689,15 +793,92 @@ def scoreretlist(n, tsx):
     return score
 
 
+def scoreretlist2(n, tsxv):
+    return np.corrcoef(tsxv[n:n+7], rowvar=False)
+
+
+def filt(row, adj, tsxv):
+    np.corrcoef(row,)
+
+
+def scoreretlist3(n, tsxv, adj):
+
+    cc = np.zeros(adj.shape)
+    for i in range(adj.shape[0]):
+        nz = adj[i].nonzero()[0]
+        cc[i, nz] = [pearsonr(tsxv[n:n+7, i], tsxv[n:n+7, x]) for x in nz]
+    return cc + cc.T
+
+
+def pearsonr_ixs(x, ixs):
+    # If an input is constant, the correlation coefficient is not defined.
+    # t0 = time.time()
+    xm = (x - x.mean(axis=0))
+    xmn = xm/np.sqrt((xm*xm).sum(axis=0))
+    # t1 = time.time()
+    # ixs = np.nonzero(adju)
+    # t2 = time.time()
+    out = np.zeros((x.shape[1], x.shape[1]))
+    # t3 = time.time()
+    out[ixs[:, 0], ixs[:, 1]] = (xmn[:, ixs][:, :, 0] *
+                                 xmn[:, ixs][:, :, 1]).sum(axis=0)
+    # Presumably, if abs(r) > 1, then it is only some small artifact of
+    # floating point arithmetic.
+    # t4 = time.time()
+    # print(t1-t0, t2-t1, t3-t2, t4-t3)
+    # return np.clip(out+out.T, -1.0, 1.0)
+    return out
+
+
+def pearsonr_ixs(x, ixs):
+    # If an input is constant, the correlation coefficient is not defined.
+    # t0 = time.time()
+    xm = (x - x.mean(axis=0))
+    xmn = xm/np.sqrt((xm*xm).sum(axis=0))
+    # t1 = time.time()
+    # ixs = np.nonzero(adju)
+    # t2 = time.time()
+    # Presumably, if abs(r) > 1, then it is only some small artifact of
+    # floating point arithmetic.
+    # t4 = time.time()
+    # print(t1-t0, t2-t1, t3-t2, t4-t3)
+    # return np.clip(out+out.T, -1.0, 1.0)
+    return (xmn[:, ixs][:, :, 0] * xmn[:, ixs][:, :, 1]).sum(axis=0)
+
+
+def rolling_pearson_ixs(timeseries, adj):
+    ixs = np.argwhere(adj.values)
+    return np.array([pearsonr_ixs(timeseries[x:x+7], ixs)
+                     for x in range(0, len(timeseries)-6)]), ixs
+
+
+def getadj(el):
+    elt = [(i[1]['prev'], i[1]['curr'])
+           for i in list(el[['prev', 'curr']].iterrows())]
+    + [(i[1]['curr'], i[1]['prev'])
+        for i in list(el[['prev', 'curr']].iterrows())]
+    st = pd.DataFrame(list(elt)).set_index([0, 1])
+    st[0] = 1
+    st = st.loc[~st.index.duplicated()]
+    adj = st.unstack()
+    adj.columns = adj.columns.droplevel()
+    # adj = adj.reindex(index=ts.columns, columns=ts.columns).fillna(0)
+    adj = adj.sort_index()[adj.sort_index().index]
+    # print('gotadj')
+    # scaler = RobustScaler()
+    # tsx = pd.DataFrame(scaler.fit_transform(ts), index=ts.index,
+    #                    columns=ts.columns)
+    return adj
+
+
 def procts(el, tsl, articles, start, stop, months):
     cc = []
     for m in months:
-        cc.append(tsl[m][sorted({x.replace(' ', '_') for x in articles}
-                                & set(tsl[m].columns))])
+        cc.append(tsl[m][sorted(articles & set(tsl[m].columns))])
     ts = pd.concat(cc, sort=True).fillna(0).loc[start:stop]
 
     print('gotf')
-    ts = ts[sorted([x.replace(' ', '_') for x in articles])]
+    ts = ts[sorted(articles)]
 
     print('elcut')
     elt = [(i[1]['prev'], i[1]['curr'])
@@ -709,21 +890,309 @@ def procts(el, tsl, articles, start, stop, months):
     st = st.loc[~st.index.duplicated()]
     adj = st.unstack()
     adj.columns = adj.columns.droplevel()
-    adj = adj.reindex(index=[x.replace('_', ' ') for x in ts.columns],
-                      columns=[x.replace('_', ' ') for x in ts.columns]
-                      ).fillna(0)
+    adj = adj.reindex(index=ts.columns, columns=ts.columns).fillna(0)
     adj = adj.sort_index()[adj.sort_index().index]
-    adj.index = [x.replace(' ', '_') for x in adj.index]
-    adj.columns = [x.replace(' ', '_') for x in adj.columns]
-    print('gotadj')
-    scaler = RobustScaler()
-    tsx = pd.DataFrame(scaler.fit_transform(ts), index=ts.index,
-                       columns=ts.columns)
-    return adj, tsx
+    # print('gotadj')
+    # scaler = RobustScaler()
+    # tsx = pd.DataFrame(scaler.fit_transform(ts), index=ts.index,
+    #                    columns=ts.columns)
+    return adj, ts
 
 # =============================================================================
 # Community Detection
 # =============================================================================
+
+
+def read_t_graph(event, core):
+    """
+    Prepare temporal event network for community detection.
+
+    Parameters
+    ----------
+    row : (str, Series)
+        Community name and edgelist.
+    res : float
+        Resolution.
+    quantile : float
+        Quantile to threshold edges on.
+    megamap : dict
+        Map of article redirects.
+    fp : str, optional
+        Filepath to correlation ndarray. The default is '/simtgraph5N.npz'.
+
+    Returns
+    -------
+    list
+        res : Resolution.
+        glist : List of networks (layers in temporal network).
+        igname : List of dicts with igraph node names.
+        coreu : Core articles (with underscores).
+        articles : Articles in network.
+
+    """
+    try:
+        # print('generating graphs', len(articles))
+
+        # print('loading data')
+        pcsel = np.nan_to_num(np.load(event + '/simtgraphelNN.npz')['arr_0'])
+        ixs = np.nan_to_num(np.load(event + '/simtgraphixNN.npz')['arr_0'])
+        artixdict = pd.read_hdf(event + '/coltitlesNN.h5', key='df').to_dict()
+
+        glist = []
+        for n in range(pcsel.shape[0]):
+            sel = pd.DataFrame(
+                np.append(ixs, pcsel[n].reshape(pcsel.shape[1], 1), axis=1))
+            sel.columns = ['source', 'target', 'weight']
+            sel['source'] = sel['source'].map(artixdict)
+            sel['target'] = sel['target'].map(artixdict)
+            tuples = [tuple(x) for x in sel.values]
+            glist.append(igraph.Graph.TupleList(tuples, directed=False,
+                                                edge_attrs=['weight']))
+            glist[n].vs["slice"] = n
+
+        if sum([len(x.vs) for x in glist]) == 0:
+            # print('empty')
+            return [event, 'error', 'empty']
+
+        # print('generating agg network')
+        igname = [{x.index: x['name'] for x in glist[y].vs}
+                  for y in range(len(glist))]
+        igname_rev = [{v: k for k, v in y.items()} for y in igname]
+        del pcsel, ixs, sel
+
+        glist2 = []
+        for n, gl in enumerate(glist):
+            coreids = [igname_rev[n][x] for x in core if x in igname_rev[n]]
+            components = [c for c in gl.components()
+                          if any([x in c for x in coreids])]
+            vertexes = [y for x in components for y in x]
+            glist2.append(gl.subgraph(vertexes))
+
+        igname = [{x.index: x['name'] for x in glist2[y].vs}
+                  for y in range(len(glist2))]
+
+        return glist2, igname
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        raise
+        return [event, 'error', ex]
+
+
+def temporal_community_detection(glist, res, interslice_weight=1):
+    """
+    Run Leiden algorithm on temporal network, returning community memberships.
+
+    Parameters
+    ----------
+    res : float
+        Resolution.
+    glist : list
+        List of networks (layers in temporal network).
+    igname : list
+        List of dicts with igraph node names.
+    coreu : list
+        Core articles (with underscores).
+    articles : list
+        Articles in network.
+
+
+    Returns
+    -------
+    tuple
+        membdf : DataFrame with community memberships.
+        collmems : Dictionary of communities.
+        tcd : Centralities of articles within each community.
+
+    """
+    try:
+        # print('running community detection')
+
+        membership = la.find_partition_temporal(
+            glist, la.CPMVertexPartition, vertex_id_attr='name',
+            interslice_weight=interslice_weight, resolution_parameter=res)[0]
+        membdf = pd.concat([pd.Series(x, index=glist[n].vs['name'])
+                            for n, x in enumerate(membership)],
+                           axis=1, sort=True)
+
+        return membdf
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        # raise
+        return ['error', ex]
+
+
+def extract_event_reactions(membdf, igname, core, articles):
+    """
+    Run Leiden algorithm on temporal network, returning community memberships.
+
+    Parameters
+    ----------
+    res : float
+        Resolution.
+    glist : list
+        List of networks (layers in temporal network).
+    igname : list
+        List of dicts with igraph node names.
+    coreu : list
+        Core articles (with underscores).
+    articles : list
+        Articles in network.
+
+
+    Returns
+    -------
+    tuple
+        membdf : DataFrame with community memberships.
+        collmems : Dictionary of communities.
+        tcd : Centralities of articles within each community.
+
+    """
+    try:
+
+        # print('getting event reactions')
+        mid = len(membdf.columns)//2
+        evrs = {}
+        t0comms = membdf.loc[set(core) & set(articles), mid]
+        membdfc = membdf.loc[set(core) & set(articles)].T
+
+        cmd = {x: [] for x in set(t0comms.dropna().values)}
+        for x in t0comms.dropna().iteritems():
+            cmd[x[1]].append(x[0])
+
+        for k, c in cmd.items():
+            segt = ((membdfc[c] == k).sum(axis=1) > .5*len(c))
+            tf = segt == segt.shift(1)
+            diff = np.append(np.where(~tf.values)[0] - mid,
+                             len(membdf.columns) - 1)
+            beg = mid + diff[diff <= 0].max()
+            end = mid + diff[diff > 0].min() - 1
+            t = membdf.T.loc[beg:end][membdf.T.loc[beg:end]
+                                      == k].T.dropna(how='all')
+            gg = {x: set(t[x].dropna().index) for x in t}
+            js = pd.Series({k: jac(set(gg[mid]), set(v))
+                            for k, v in gg.items()})
+            t = t[js[js > .5].index].dropna(how='all')
+            evrs['---'.join(sorted(c))] = t
+
+        # uniquify sets
+        for n, (k, v) in enumerate(evrs.items()):
+            for m, (l, u) in enumerate(evrs.items()):
+                if m > n:
+                    for s in set(v.index) & set(u.index):
+                        f1 = len(v.loc[s].dropna())/len(v.loc[s])
+                        f2 = len(u.loc[s].dropna())/len(u.loc[s])
+                        if f1 > f2:
+                            evrs[l] = evrs[l].drop(s)
+                        elif f2 > f1:
+                            evrs[k] = evrs[k].drop(s)
+                        elif len(v) < len(u):
+                            evrs[l] = evrs[l].drop(s)
+                        else:
+                            evrs[k] = evrs[k].drop(s)
+
+        return evrs
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        # raise
+        return ['error', ex]
+
+
+def community_centralities(glist, igname, membdf, evrs):
+    """
+    Run Leiden algorithm on temporal network, returning community memberships.
+
+    Parameters
+    ----------
+    res : float
+        Resolution.
+    glist : list
+        List of networks (layers in temporal network).
+    igname : list
+        List of dicts with igraph node names.
+    coreu : list
+        Core articles (with underscores).
+    articles : list
+        Articles in network.
+
+
+    Returns
+    -------
+    tuple
+        membdf : DataFrame with community memberships.
+        collmems : Dictionary of communities.
+        tcd : Centralities of articles within each community.
+
+    """
+    try:
+
+        # print('getting comm data')
+        for n in range(len(membdf.columns)):
+            cattr = membdf[n].copy()
+            cattr.index = cattr.index.map({v: k for k, v in igname[n].items()})
+            glist[n].vs['community'] = cattr.sort_index().values
+            glist[n].vs["label"] = glist[n].vs["name"]
+
+        tcd = {k: tcentrality(glist, v) for k, v in evrs.items()}
+
+        return tcd
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        # raise
+        return ['error', ex]
+
+
+def read_ev_data(e, rdarts_rev):
+    try:
+        core = [rdarts_rev.get(x.replace(' ', '_'), x.replace(' ', '_')) for x in
+                pd.read_csv(e+'/core.tsv', sep='\t', header=None)[0]]
+        articles = pd.read_hdf(e + '/coltitlesNN.h5', key='df')
+        glist, igname = read_t_graph(e, core)
+
+        if len(glist[0].vs):
+            return core, articles, glist, igname
+        else:
+            print('Graph empty ' + e)
+            return (core, articles)
+
+    except Exception as ex:
+        print('Error reading ' + e)
+        return (e, ex)
+
+
+def ev_reactions(core, articles, glist, igname, res):
+    membdf = temporal_community_detection(glist, res)
+    evrs = extract_event_reactions(membdf, igname, core, articles)
+    return membdf, evrs
+
+
+def ev_reactions_tcd(core, articles, glist, igname, res):
+    membdf = temporal_community_detection(glist, res)
+    evrs = extract_event_reactions(membdf, igname, core, articles)
+    tcd = community_centralities(glist, igname, membdf, evrs)
+    return membdf, evrs, tcd
+
+
+def server_tcd(e, rdarts_rev, res):
+    try:
+        core = [rdarts_rev.get(x.replace(' ', '_'), x.replace(' ', '_')) for x in
+                pd.read_csv(e+'/core.tsv', sep='\t', header=None)[0]]
+        articles = pd.read_hdf(e + '/coltitlesNN.h5', key='df')
+        glist, igname = read_t_graph(e, core)
+    except Exception as ex:
+        print('Error reading ' + e)
+        return (e, ex)
+    membdf = temporal_community_detection(glist, res)
+    evrs = extract_event_reactions(membdf, igname, core, articles)
+    tcd = community_centralities(glist, igname, membdf, evrs)
+    return membdf, evrs, tcd
 
 
 def cd1(row, res, quantile, megamap={}, fp='/simtgraph5N.npz'):
@@ -912,7 +1381,87 @@ def cd2(res, glist, igname, coreu, articles):
 # =============================================================================
 
 
-def cdflatR(row, resrange, core, flatadj):
+def read_f_data(e, rdarts_rev):
+    try:
+        core = [rdarts_rev.get(x.replace(' ', '_'), x.replace(' ', '_')) for x in
+                pd.read_csv(e+'/core.tsv', sep='\t', header=None)[0]]
+        articles = pd.read_hdf(e + '/coltitlesNN.h5', key='df')
+        G, igname = read_f_graph(e, core)
+        return core, articles, G, igname
+    except Exception as ex:
+        print('Error reading ' + e)
+        return (e, ex)
+
+
+def read_f_graph(event, core):
+    """
+    Prepare temporal event network for community detection.
+
+    Parameters
+    ----------
+    row : (str, Series)
+        Community name and edgelist.
+    res : float
+        Resolution.
+    quantile : float
+        Quantile to threshold edges on.
+    megamap : dict
+        Map of article redirects.
+    fp : str, optional
+        Filepath to correlation ndarray. The default is '/simtgraph5N.npz'.
+
+    Returns
+    -------
+    list
+        res : Resolution.
+        glist : List of networks (layers in temporal network).
+        igname : List of dicts with igraph node names.
+        coreu : Core articles (with underscores).
+        articles : Articles in network.
+
+    """
+    try:
+        # print('generating graphs', len(articles))
+
+        # print('loading data')
+        ixs = np.nan_to_num(np.load(event + '/simtgraphixNN.npz')['arr_0'])
+        artixdict = pd.read_hdf(event + '/coltitlesNN.h5', key='df').to_dict()
+
+        el = pd.DataFrame(ixs, columns=['source', 'target'])
+        el['source'] = el['source'].map(artixdict)
+        el['target'] = el['target'].map(artixdict)
+        el['weight'] = 1
+
+        G = igraph.Graph.TupleList([tuple(x) for x in el.values],
+                                   directed=False, edge_attrs=['weight'])
+
+        if len(G.vs) == 0:
+            # print('empty')
+            return [event, 'error', 'empty']
+
+        # print('generating agg network')
+        igname = {x.index: x['name'] for x in G.vs}
+        igname_rev = {v: k for k, v in igname.items()}
+        del ixs, el
+
+        coreids = [igname_rev[x] for x in core if x in igname_rev]
+        components = [c for c in G.components()
+                      if any([x in c for x in coreids])]
+        vertexes = [y for x in components for y in x]
+        G = G.subgraph(vertexes)
+
+        igname = {x.index: x['name'] for x in G.vs}
+
+        return G, igname
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        raise
+        return [event, 'error', ex]
+
+
+def flat_CD(G, igname, core, resrange):
     """
     Run flat community detection across a range of resolutions.
 
@@ -936,49 +1485,34 @@ def cdflatR(row, resrange, core, flatadj):
 
     """
     try:
-        coreu = [x.replace(' ', '_') for x in core]
-        articles = list(flatadj.columns)
 
         # print('generating graphs', len(articles))
-
-        sel = flatadj.stack().reset_index()
-        sel.columns = ['source', 'target', 'weight']
-        sel = sel[sel['source'] != 'Main Page']
-        sel = sel[sel['target'] != 'Main Page']
-
-        # print('running community detection')
-        flatel = sel[sel['weight'] != 0]
-        flatel['weight'] = 1
-        flattup = [tuple(x) for x in flatel.values]
-        flatG = igraph.Graph.TupleList(flattup, directed=False)
-
-        nodenames = {n: x for n, x in enumerate(flatG.vs['name'])}
-        nodenamesr = {v: k for k, v in nodenames.items()}
-        del sel, flattup
-
+        articles = set(igname.values())
+        igname_rev = {v: k for k, v in igname.items()}
         membdfFD = {}
-        collmemsFD = {}
+        commsFD = {}
         for res in resrange:
-            partition = la.find_partition(
-                flatG, la.CPMVertexPartition, resolution_parameter=res)
+            partition = la.find_partition(G, la.CPMVertexPartition,
+                                          resolution_parameter=res)
             membdfF = pd.Series({y: n for n, x in enumerate(partition)
                                  for y in x}).sort_index()
-            membdfF.index = flatG.vs['name']
+            membdfF.index = G.vs['name']
             membdfF = membdfF.sort_index()
 
             # print('getting collmems')
-            collmemsF = {}
-            for c in set(membdfF.loc[set(coreu) & set(articles)]):
-                collmemsF['---'.join(sorted(membdfF.loc[set(coreu) & set(articles)]
-                                            [membdfF == c].index))] = list(membdfF[membdfF == c].index)
+            comms = {}
+            for c in set(membdfF.loc[set(core) & articles]):
+                cn = '---'.join(sorted(membdfF.loc[set(core) & articles]
+                                       [membdfF == c].index))
+                comms[cn] = list(membdfF[membdfF == c].index)
 
             membdfFD[res] = membdfF
-            collmemsFD[res] = collmemsF
+            commsFD[res] = comms
 
-        tcdD = {res: {k: centrality(flatG, v, nodenamesr)
-                      for k, v in V.items()} for res, V in collmemsFD.items()}
+        tcdD = {res: {k: centrality(G, v, igname_rev)
+                      for k, v in V.items()} for res, V in commsFD.items()}
 
-        return membdfFD, collmemsFD, tcdD
+        return membdfFD, commsFD, tcdD
 
     except KeyboardInterrupt:
         raise
@@ -987,7 +1521,7 @@ def cdflatR(row, resrange, core, flatadj):
         return ['error', ex]
 
 
-def cmmatcher(n, x, colm, resrange, m, allev):
+def evr_matcher(e, tcdD, tcdt, resrange):
     """
     Match communities from flat network across res range to existing community.
 
@@ -1015,21 +1549,37 @@ def cmmatcher(n, x, colm, resrange, m, allev):
     try:
         wjdf = pd.DataFrame()
         jdf = pd.DataFrame()
-        for k, v in colm.items():
+        for k, v in tcdt.items():
             for r in resrange:
                 maw = []
                 ma = []
-                for k2, v2 in x[2][r].items():
-                    maw.append(wjac(v, v2))
+                for k2, v2 in tcdD[r].items():
+                    maw.append(wjac(v.to_dict(), v2.to_dict()))
                     ma.append(jac(set(v.index), set(v2.index)))
                 wjdf.loc[k, r] = max(maw)
                 jdf.loc[k, r] = max(ma)
 
-        wjdf.index = pd.Series(wjdf.index).apply(
-            lambda x: allev[m+n].split('evtest/')[-1] + '/'+x+'.h5')
-        jdf.index = pd.Series(jdf.index).apply(
-            lambda x: allev[m+n].split('evtest/')[-1] + '/'+x+'.h5')
+        wjdf.index = pd.Series(wjdf.index).apply(lambda x: e + '/' + x)
+        jdf.index = pd.Series(jdf.index).apply(lambda x: e + '/' + x)
 
         return wjdf, jdf
     except Exception as ex:
-        return ['error', n, x, ex]
+        return ['error', e, ex]
+
+# =============================================================================
+#
+# =============================================================================
+
+
+def H_sim(ct):
+
+    c1 = ct[:, 0]
+    c2 = ct[:, 1]
+
+    ami_out = sklearn.metrics.adjusted_mutual_info_score(c1, c2)
+
+    c1 = Clustering(elm2clu_dict={n: [v] for n, v in enumerate(c1)})
+    c2 = Clustering(elm2clu_dict={n: [v] for n, v in enumerate(c2)})
+    clusim_out = sim.element_sim(c1, c2, alpha=0.9)
+
+    return ami_out, clusim_out

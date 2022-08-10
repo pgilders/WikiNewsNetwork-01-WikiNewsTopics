@@ -17,64 +17,59 @@ import igraph
 import unicodedata
 import functions1 as pgc
 
+# %% Load data
 
-pgpath = '/Volumes/PGPassport/'
+BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
-DD = sorted([x for x in glob.glob(pgpath + 'evtLocal/*/tcweights.h5.h5')])
+DD = sorted([x[:-13] for x in glob.glob(BPATH + 'events/*/tcweights.h5')])
+
+ddc_count = 0
 DDC = {}
 for n, x in enumerate(DD):
-    print(n/len(DD))
-    with pd.HDFStore(x, mode='r') as hdf:
+    if n % 500 == 0:
+        print('%.2f %%' % (100*n/len(DD)))
+    with pd.HDFStore(x+'/tcweights.h5', mode='r') as hdf:
         for k in hdf.keys():
-            DDC[x[:-16]+k+'.h5'] = pd.read_hdf(x, key=k)
+            ddc_count += 1
+            DDC[x + '/' + k[1:].replace('/', ':')
+                ] = pd.read_hdf(x+'/tcweights.h5', key=k)
 
-DDC2 = {}
-for n, (k, v) in enumerate(DDC.items()):
-    print(n/len(DDC))
-    if k.split('/')[-2] not in DDC2.keys():
-        DDC2[k.split('/')[-2]] = {k.split('/')[-1]: v}
-    else:
-        DDC2[k.split('/')[-2]][k.split('/')[-1]] = v
-# %%
-combos = [(DDC[k1], DDC[k2]) for n, k1 in enumerate(sorted(DDC.keys()))
+# %% Create combinations
+
+combos = [(k1, k2) for n, k1 in enumerate(sorted(DDC.keys()))
           for m, k2 in enumerate(sorted(DDC.keys())) if n < m]
+lc = len(combos)
+print(lc)
 
-# %%
-for n in range(37000000, len(combos), int(1E6)):
-    print(n)
-    # jacsw = Parallel(n_jobs=-1, verbose=3)(delayed(pgc.wjac)(x[0], x[1])
-    # for x in combos[n:n+int(1E6)])
-    jacsw = [pgc.wjac(dict(x[0]), dict(x[1])) for x in combos[n:n+int(1E6)]]
-    with open('/Users/Patrick/active_data/jw2/jacsw%.1f.json' % (n/1E6), 'w+') as f:
+# %% Calculated weighted jacs
+
+for n in range(0, lc, int(1E6)):
+    if n % 10000000 == 0:
+        print('%.2f %%' % (100*n/lc))
+
+    jacsw = [pgc.wjac(DDC[x[0]], DDC[x[1]]) for x in combos[n:n+int(1E6)]]
+
+    with open(BPATH + 'evr_similarities/jacsw%.1f.json' % (n/1E6), 'w+') as f:
         json.dump(jacsw, f)
 
+del jacsw, DDC
 
-del combos
 
+# %% Read weighted jacs
 
-# %%
 jll = []
-for n in range(0, 132787956, int(1E6)):
-    print(n, 132787956)
-    with open('/Users/Patrick/active_data/jw2/jacsw%.1f.json' % (n/1E6), 'r') as f:
+for n in range(0, lc, int(1E6)):
+    if n % 10000000 == 0:
+        print('%.2f %%' % (100*n/lc))
+    with open(BPATH + 'evr_similarities/jacsw%.1f.json' % (n/1E6), 'r') as f:
         jll.extend(json.load(f))
 
-# %%
-# Create DataFrame, edgelist, graph from wjacs
-simdf = pd.DataFrame(arr, index=sorted(DDC.keys()), columns=sorted(DDC.keys()))
-del arr, ixsall, ixc, jll  # , ixspre, ixspost
-sds = simdf.stack()
-del simdf
+# %% Create edgelist from wjacs
 
-sds = sds[sds > 0]
-el = sds.reset_index()
-del sds
+tuples = [(*[y.split('/events/')[-1] for y in combos[n]], x)
+          for n, x in enumerate(jll) if x > 0]
 
-el.columns = ['source', 'target', 'weight']
-el.source = el.source.str.split('evtLocal/').str[-1]
-el.target = el.target.str.split('evtLocal/').str[-1]
+# %% Save edgelist
 
-tuples = [tuple(x) for x in el.values]
-del el
-
-G = igraph.Graph.TupleList(tuples, directed=False, edge_attrs=['weight'])
+with open(BPATH + 'aux_data/H_edgelist.json', 'w+') as f:
+    json.dump(tuples, f)

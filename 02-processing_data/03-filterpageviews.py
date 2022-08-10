@@ -16,30 +16,13 @@ import functions1 as pgc
 from dask.diagnostics import ProgressBar
 ProgressBar().register()
 
+# %% Load data
+
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
 montharticles = {k: set() for k in pgc.months_range(pd.to_datetime('20171101'),
                                                     pd.to_datetime('20181231'))}
-allels = glob.glob(BPATH + 'events/*/all_el100NN.h5')
-
-# %%
-for n, e in enumerate(allels):
-    if n % 100 == 0:
-        print('%.2f %%' % (100*n/len(allels)))
-    el = pd.read_hdf(e)
-    allarts = set(el['prev']) | set(el['curr'])
-    date = datetime.datetime.strptime(e.split('events/')[-1][:8], '%Y%m%d')
-    start = date - datetime.timedelta(days=30)
-    stop = date + datetime.timedelta(days=30)
-    mr = pgc.months_range(start, stop)
-    for m in mr:
-        montharticles[m] |= allarts
-
-with open('support_data/montharticles.json', 'w+') as fp:
-    json.dump({k: list(v) for k, v in montharticles.items()}, fp)
-    fp.close()
-
-# %%
+allels = glob.glob(BPATH + 'events/*/all_el100NNN.h5')
 
 with open('support_data/redir_arts_map.json', 'r') as json_data:
     redir_arts_map = json.load(json_data)
@@ -51,20 +34,42 @@ with open('support_data/megamap.json', 'r') as json_data:
 
 rdarts_rev = {x: k for k, v in redir_arts_map.items() for x in v}
 
-with open('support_data/montharticles.json', 'r') as fp:
-    montharticles = {k: set(v) for k, v in json.load(fp).items()}
-    fp.close()
-
 pvfiles = sorted(glob.glob(BPATH + 'pageviews/en/p*viewen'))
 
-# %%
-# check underscore/nonunderscore
-# rogue encodings?
+
+# %% generate articles for each month
+if os.path.exists('support_data/montharticles.json'):
+
+    with open('support_data/montharticles.json', 'r') as fp:
+        montharticles = {k: set(v) for k, v in json.load(fp).items()}
+        fp.close()
+
+else:
+
+    for n, e in enumerate(allels):
+        if n % 100 == 0:
+            print('%.2f %%' % (100*n/len(allels)))
+        el = pd.read_hdf(e)
+        allarts = set(el['prev']) | set(el['curr'])
+        date = datetime.datetime.strptime(e.split('events/')[-1][:8], '%Y%m%d')
+        start = date - datetime.timedelta(days=30)
+        stop = date + datetime.timedelta(days=30)
+        mr = pgc.months_range(start, stop)
+        for m in mr:
+            montharticles[m] |= allarts
+
+    with open('support_data/montharticles.json', 'w+') as fp:
+        json.dump({k: list(v) for k, v in montharticles.items()}, fp)
+        fp.close()
+
+
+# %% Create hourly and daily timeseries for relevant articles
+
 for i in pvfiles:
     try:
         y = i.split('pagecounts-')[1][:4]
         m = i.split('pagecounts-')[1][5:7]
-        if os.path.exists(BPATH + '/daily/daily_t_series_%s.h5' % (y+m)):
+        if os.path.exists(BPATH + 'pageviews/daily/daily_t_series_%s.h5' % (y+m)):
             print(i, 'exists')
             continue
 
@@ -81,30 +86,31 @@ for i in pvfiles:
 
         print('getting marticles')
         marticles = {z for x in montharticles[y+m] for z in
-                     redir_arts_map[megamap.get(x.replace('_', ' '),
-                                                x).replace(' ', '_')]}
+                     redir_arts_map[rdarts_rev.get(x, x)]}
 
         print('loccing', len(marticles))
         common = set(marticles) & set(dfr.index)
 
         print('getting ts', len(common))
         t_s = dd.from_pandas(dfr.loc[common],
-                             npartitions=16*multiprocessing.cpu_count())
-        del dfr
+                             npartitions=128*multiprocessing.cpu_count())
+        del dfr, common, marticles
 
         print('getting timeseries', len(t_s))
         timeseries = t_s.map_partitions(lambda df: df.apply(lambda x: pgc.text_to_tseries(
-            x, int(y), int(m)))).compute(scheduler='processes', num_workers=4)
+            x, int(y), int(m)))).compute(scheduler='processes', num_workers=10)
 
         print('aggregating')
         del t_s
-        timeseries['article'] = timeseries.index.map(rdarts_rev)
+        timeseries['article'] = timeseries.index.map(rdarts_rev)  #
         agg = timeseries.groupby('article').sum().T
         del timeseries
 
         print('saving', agg.T.memory_usage().sum()/1000000000)
-        agg.to_hdf(BPATH + '/hourly/hourly_t_series_%s.h5' % (y+m), key='df')
-        agg.resample('d').sum().to_hdf(BPATH + '/daily/daily_t_series_%s.h5'
+        agg.index = pd.to_datetime(agg.index)
+        agg.to_hdf(BPATH + 'pageviews/hourly/hourly_t_series_%s.h5' %
+                   (y+m), key='df')
+        agg.resample('d').sum().to_hdf(BPATH + 'pageviews/daily/daily_t_series_%s.h5'
                                        % (y+m), key='df')
         del agg
     except Exception as ex:
