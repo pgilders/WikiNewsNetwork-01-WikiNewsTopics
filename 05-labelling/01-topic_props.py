@@ -5,11 +5,12 @@ Created on Tue May 17 17:31:14 2022
 
 @author: Patrick
 """
-import pandas as pd
+
 import glob
 import json
-import numpy as np
 from dateutil.relativedelta import relativedelta
+import numpy as np
+import pandas as pd
 
 # %% Load data
 

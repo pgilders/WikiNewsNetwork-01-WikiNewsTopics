@@ -6,17 +6,19 @@ Created on Tue May 17 17:52:40 2022
 @author: Patrick
 """
 
+
+import json
+import glob
+import igraph
+from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
-import json
-import igraph
-import glob
 import leidenalg as la
-from joblib import Parallel, delayed
-import functions1 as pgc
 import matplotlib.pyplot as plt
+import functions1 as pgc
 
 # %% Load data
+
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
 with open(BPATH + 'aux_data/H_edgelist.json', 'r') as f:
@@ -72,7 +74,7 @@ pd.Series([x[1] for x in sims],
           index=pi.columns[1:]).to_hdf('support_data/H_clusim.h5', key='df')
 
 # %% Plot and select resolution (r = 0.06)
-
+pi = pd.read_hdf('support_data/H_partitions.h5', key='df')
 data_ami = pd.read_hdf('support_data/H_ami.h5', key='df')
 data_clusim = pd.read_hdf('support_data/H_clusim.h5', key='df')
 

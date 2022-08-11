@@ -5,15 +5,15 @@ Created on Tue May 31 10:40:17 2022
 
 @author: Patrick
 """
-import dask.dataframe as dd
+import json
+import datetime
 import multiprocessing
 import os
 import glob
-import pandas as pd
-import json
-import datetime
-import functions1 as pgc
 from dask.diagnostics import ProgressBar
+import dask.dataframe as dd
+import pandas as pd
+import functions1 as pgc
 ProgressBar().register()
 
 # %% Load data
@@ -115,4 +115,3 @@ for i in pvfiles:
         del agg
     except Exception as ex:
         print(i, ex)
-        pass

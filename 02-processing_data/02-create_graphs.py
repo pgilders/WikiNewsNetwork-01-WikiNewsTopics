@@ -6,13 +6,10 @@ Created on Wed May 18 16:36:09 2022
 @author: Patrick
 """
 
-import os
-from calendar import monthrange
-from joblib import Parallel, delayed
 import json
-import glob
+from calendar import monthrange
 import pandas as pd
-
+# from joblib import Parallel, delayed
 import functions1 as pgc
 
 # %% load data
@@ -72,6 +69,7 @@ for mn, mrk in enumerate(mrset):
                     errors.append((n, e))
                     print('ERROR', e)
         except KeyboardInterrupt:
+            print('Interrupted')
             raise
         except Exception as ex:
             print(n, ex)

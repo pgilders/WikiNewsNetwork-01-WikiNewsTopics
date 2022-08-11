@@ -10,12 +10,12 @@ Script for AWS server for remaining events, more powerful than my laptop...
 @author: Patrick
 """
 
-from joblib import Parallel, delayed
 import json
+import os
 import glob
+from joblib import Parallel, delayed
 import pandas as pd
 import functions1 as pgc
-import os
 
 BPATH = ''
 
@@ -38,10 +38,10 @@ evlsn = pd.read_hdf('support_data/evlsN.h5', key='df')
 errors = []
 for maxthresh, step, njo in [(4000, 384, -1), (12000, 256, -1),
                              (30000, 128, -1)]:
-    ready = set([namedict[x.split('/')[-2]]
-                for x in glob.glob(BPATH + 'events_N/*/simtgraphixNN.npz')])
-    finished = set([namedict[x.split('/')[-2]]
-                   for x in glob.glob(BPATH+'events_out_N/*/tcweights.h5')])
+    ready = {namedict[x.split('/')[-2]]
+             for x in glob.glob(BPATH + 'events_N/*/simtgraphixNN.npz')}
+    finished = {namedict[x.split('/')[-2]]
+                for x in glob.glob(BPATH+'events_out_N/*/tcweights.h5')}
 
     edf = evlsn.loc[list((ready - finished) & set(evlsn.index))
                     ].sort_values('len')[evlsn['len'] < maxthresh]

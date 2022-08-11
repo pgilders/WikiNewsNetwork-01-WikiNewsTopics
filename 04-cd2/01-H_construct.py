@@ -8,13 +8,9 @@ Created on Tue May 17 18:07:36 2022
 @author: Patrick
 """
 
-from joblib import Parallel, delayed
 import glob
-import pandas as pd
-import numpy as np
 import json
-import igraph
-import unicodedata
+import pandas as pd
 import functions1 as pgc
 
 # %% Load data

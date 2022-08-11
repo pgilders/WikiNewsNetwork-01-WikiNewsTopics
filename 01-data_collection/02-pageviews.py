@@ -6,9 +6,9 @@ Created on Tue May 31 13:20:03 2022
 @author: Patrick
 """
 
-import requests
 import datetime
 import shutil
+import requests
 import functions1 as pgc
 
 # %% download pageview files

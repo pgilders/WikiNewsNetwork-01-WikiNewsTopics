@@ -8,13 +8,14 @@ Created on Wed May 18 14:51:08 2022
 
 import os
 import datetime
-from joblib import Parallel, delayed
 import json
 import glob
+# from joblib import Parallel, delayed
+from sklearn.preprocessing import RobustScaler
 import pandas as pd
 import numpy as np
 import functions1 as pgc
-from sklearn.preprocessing import RobustScaler
+
 
 # %% Load data
 
@@ -56,8 +57,8 @@ for n in range(0, len(events), 100):
     # evlt = Parallel(n_jobs=-1, verbose=5)(delayed(getevls)(x)
     #                                       for x in events[n:n+100])
     e2 = {k: v for d in evlt for k, v in d[0].items()}
-    e2g = {k: v for k, v in e2.items() if type(v) == dict}
-    e2e = {k: v for k, v in e2.items() if type(v) != dict}
+    e2g = {k: v for k, v in e2.items() if isinstance(v, dict)}
+    e2e = {k: v for k, v in e2.items() if not isinstance(v, dict)}
     e2el = {**e2el, **e2e}
     print(len(e2e), 'errors')
 

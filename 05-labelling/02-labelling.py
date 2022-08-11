@@ -6,10 +6,9 @@ Created on Tue May 17 17:46:08 2022
 @author: Patrick
 """
 
+import glob
 import pandas as pd
 import numpy as np
-import glob
-import functions1 as pgc
 
 # %% Read data
 

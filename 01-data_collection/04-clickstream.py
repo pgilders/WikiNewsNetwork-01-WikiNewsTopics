@@ -6,9 +6,9 @@ Created on Tue May 31 14:09:23 2022
 @author: Patrick
 """
 
+import calendar
 import glob
 import pandas as pd
-import calendar
 
 # %% load data
 

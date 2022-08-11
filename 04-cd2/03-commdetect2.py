@@ -6,11 +6,12 @@ Created on Tue May 17 16:01:58 2022
 @author: Patrick
 """
 
-import leidenalg as la
-import pandas as pd
 import json
 import glob
 import igraph
+import leidenalg as la
+import pandas as pd
+
 
 # %% Load data
 BPATH = '/Volumes/PGPassport/DPhil redo data/'

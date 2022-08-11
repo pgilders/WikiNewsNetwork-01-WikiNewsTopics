@@ -3,14 +3,14 @@
 """
 Created on Tue May 17 14:57:12 2022
 
-Initial community detection on new event networks
+Initial community detection on news event networks
 
 @author: Patrick
 """
 
-from joblib import Parallel, delayed
 import json
 import glob
+from joblib import Parallel, delayed
 import pandas as pd
 import functions1 as pgc
 
@@ -31,10 +31,10 @@ evlsn = pd.read_hdf('support_data/evlsN.h5', key='df')
 errors = []
 for maxthresh, step, njo in [(2000, 500, -1), (4000, 100, -1), (8000, 50, 8),
                              (30000, 25, 4)]:
-    ready = set([x.split('/')[-2] for x in
-                 glob.glob(BPATH + 'events/*/simtgraphixNN.npz')])
-    finished = set([x.split('/')[-2] for x in
-                    glob.glob(BPATH+'events/*/tcweights.h5')])
+    ready = {x.split('/')[-2] for x in
+             glob.glob(BPATH + 'events/*/simtgraphixNN.npz')}
+    finished = {x.split('/')[-2] for x in
+                glob.glob(BPATH+'events/*/tcweights.h5')}
 
     edf = evlsn.loc[list(ready-finished)].sort_values('len')[evlsn['len']
                                                              < maxthresh]

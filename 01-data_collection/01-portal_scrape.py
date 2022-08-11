@@ -5,9 +5,9 @@ Created on Thu May 19 15:58:19 2022
 
 @author: Patrick
 """
-import pandas as pd
 import os
 import unicodedata
+import pandas as pd
 import functions1 as pgc
 
 # %% Scrape portal

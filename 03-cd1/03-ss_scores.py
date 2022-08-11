@@ -8,11 +8,11 @@ Get Structural Similarity Scores
 @author: Patrick
 """
 
-from joblib import Parallel, delayed
 import glob
+import json
+from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
-import json
 import seaborn as sns
 import matplotlib.pyplot as plt
 import functions1 as pgc
@@ -22,7 +22,7 @@ import functions1 as pgc
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
 
-evlsn = pd.read_hdf('support_data/evlsN.h5', key='df')
+evlsn = pd.read_hdf(BPATH + 'aux_data/evlsN.h5', key='df')
 
 with open('support_data/redir_arts_map.json') as json_data:
     redir_arts_map = json.load(json_data)
@@ -31,7 +31,7 @@ with open('support_data/redir_arts_map.json') as json_data:
 rdarts_rev = {x: k for k, v in redir_arts_map.items() for x in v}
 
 
-wjdone = set([x[:-8] for x in glob.glob(BPATH + 'events/*/wjac.h5')])
+wjdone = {x[:-8] for x in glob.glob(BPATH + 'events/*/wjac.h5')}
 DD = sorted([x[:-13] for x in glob.glob(BPATH + 'events/*/tcweights.h5')])
 
 allev = sorted(set(DD) - wjdone)
@@ -106,8 +106,7 @@ for m in range(0, len(allev), step):
 
 # %% Create df with all SS scores
 
-wjacs = sorted([x for x in glob.glob(BPATH + 'events/*/wjac.h5')])
-
+wjacs = sorted(glob.glob(BPATH + 'events/*/wjac.h5'))
 allwj = pd.concat([pd.read_hdf(x).max(axis=1) for x in wjacs])
 
 # %% Plot SS score distribution
@@ -116,13 +115,15 @@ plt.figure(figsize=[16, 10])
 sns.kdeplot(allwj, clip=(0, 1), bw_adjust=0.3, fill=True)
 plt.title('Structural Similarity Distribution')
 plt.xlabel('Structural Similarity')
+plt.show()
 
 # %% Plot filtered SS score distribution
 
 filt_wj = allwj[allwj.index.str.split('/').str[0].isin(evlsn[evlsn['len'] > 100
                                                              ].index)]
 plt.figure(figsize=[16, 10])
-sns.kdeplot(allwj, clip=(0, 1), bw_adjust=0.3, fill=True)
+# sns.kdeplot(allwj, clip=(0, 1), bw_adjust=0.3, fill=True)
 sns.kdeplot(filt_wj, clip=(0, 1), bw_adjust=0.3, fill=True)
 plt.title('Structural Similarity Distribution')
 plt.xlabel('Structural Similarity')
+plt.show()

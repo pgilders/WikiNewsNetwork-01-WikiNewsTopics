@@ -7,12 +7,12 @@ Created on Wed May 18 17:27:01 2022
 """
 
 import random
-import numpy as np
-import pandas as pd
 import json
 from sklearn.metrics import adjusted_mutual_info_score as ami
 from joblib import Parallel, delayed
 from clusim.clustering import Clustering
+import numpy as np
+import pandas as pd
 import clusim.sim as sim
 import matplotlib.pyplot as plt
 import functions1 as pgc
@@ -107,10 +107,13 @@ clusims_df.to_hdf('support_data/res_clusims.h5', key='df')
 
 # %% Plot sims
 
+amis_df = pd.read_hdf('support_data/res_amis.h5', key='df')
+clusims_df = pd.read_hdf('support_data/res_clusims.h5', key='df')
+
 amis_df.mean(axis=1).plot(label='AMI')
 clusims_df.mean(axis=1).plot(label='CluSim')
 plt.xscale('log')
-plt.title('Community etection partition similarity')
+plt.title('Community detection partition similarity')
 plt.xlabel('Resolution')
 plt.ylabel('Similarity')
 plt.legend()

@@ -47,3 +47,5 @@ for inpath in pvfiles:
 
     summfile.write('o file written\n')
     print('o file written\n')
+
+summfile.close()
