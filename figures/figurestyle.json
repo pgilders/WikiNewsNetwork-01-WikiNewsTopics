@@ -1,0 +1,12 @@
+{"axes.titlesize": 30,
+ "axes.labelsize": 25,
+ "axes.titlepad": 30,
+ "axes.grid.which": "both",
+ "lines.linewidth": 4,
+ "lines.markersize": 10,
+ "xtick.labelsize": 20,
+ "ytick.labelsize": 20,
+ "legend.fontsize": 20,
+ "legend.handlelength": 2,
+ "savefig.bbox": "tight",
+ "savefig.pad_inches": 0.2}

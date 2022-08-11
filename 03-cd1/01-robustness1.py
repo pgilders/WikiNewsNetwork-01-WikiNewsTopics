@@ -17,6 +17,13 @@ import clusim.sim as sim
 import matplotlib.pyplot as plt
 import functions1 as pgc
 
+
+plt.style.use('seaborn-darkgrid')
+with open('figures/figurestyle.json', 'r') as f:
+    params = json.load(f)
+plt.rcParams.update(params)
+
+
 # %% Load data
 
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
@@ -110,11 +117,16 @@ clusims_df.to_hdf('support_data/res_clusims.h5', key='df')
 amis_df = pd.read_hdf('support_data/res_amis.h5', key='df')
 clusims_df = pd.read_hdf('support_data/res_clusims.h5', key='df')
 
+plt.figure(figsize=[16, 10])
 amis_df.mean(axis=1).plot(label='AMI')
 clusims_df.mean(axis=1).plot(label='CluSim')
+plt.ylim([0.475, 0.725])
+plt.yticks(np.arange(0.5, 0.75, 0.05))
 plt.xscale('log')
-plt.title('Community detection partition similarity')
+plt.title('Community Detection Partition Similarity')
 plt.xlabel('Resolution')
 plt.ylabel('Similarity')
 plt.legend()
+plt.savefig('figures/cdsim.svg')
+plt.savefig('figures/cdsim.png')
 plt.show()

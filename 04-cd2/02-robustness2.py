@@ -17,6 +17,13 @@ import leidenalg as la
 import matplotlib.pyplot as plt
 import functions1 as pgc
 
+
+plt.style.use('seaborn-darkgrid')
+with open('figures/figurestyle.json', 'r') as f:
+    params = json.load(f)
+plt.rcParams.update(params)
+
+
 # %% Load data
 
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
@@ -78,14 +85,17 @@ pi = pd.read_hdf('support_data/H_partitions.h5', key='df')
 data_ami = pd.read_hdf('support_data/H_ami.h5', key='df')
 data_clusim = pd.read_hdf('support_data/H_clusim.h5', key='df')
 
-plt.figure(figsize=[12, 8])
-pd.Series(data_ami, index=pi.columns[1:]).plot(label='AMI', lw=3)
-pd.Series(data_clusim, index=pi.columns[1:]).plot(label='CluSim', lw=3)
+plt.figure(figsize=[16, 10])
+pd.Series(data_ami, index=pi.columns[1:]).plot(label='AMI')
+pd.Series(data_clusim, index=pi.columns[1:]).plot(label='CluSim')
 plt.legend()
 plt.xscale('log')
-plt.yscale('log')
-plt.ylim([0.9, 1])
-plt.title('Higher Level Partition Stability')
+# plt.yscale('log')
+plt.ylim([0.84, 1.01])
+plt.yticks(np.arange(0.85, 1, 0.05))
+plt.title('Higher Level Partition Similarity')
 plt.xlabel('Resolution')
 plt.ylabel('Similarity')
+plt.savefig('figures/hcdsim.svg')
+plt.savefig('figures/hcdsim.png')
 plt.show()
