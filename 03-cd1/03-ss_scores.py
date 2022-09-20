@@ -15,7 +15,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 plt.style.use('seaborn-darkgrid')
 with open('figures/figurestyle.json', 'r') as f:
@@ -61,7 +62,7 @@ for m in range(0, len(allev), step):
         for n, e in enumerate(allev[m:m+step]):
             if n % 40 == 0:
                 print('%.2f %%' % (100*n/len(allev[m:m+step])))
-            core_D[e], articles, G_D[e], igname_D[e] = pgc.read_f_data(
+            core_D[e], articles, G_D[e], igname_D[e] = wnn.cd.read_f_data(
                 e, rdarts_rev)
 
         print('Reading weights')
@@ -83,16 +84,17 @@ for m in range(0, len(allev), step):
                 DDC2[k.split('/')[-2]][k.split('/')[-1]] = v
 
         print('Running Community Detection')
-        out = Parallel(n_jobs=-1, verbose=10)(delayed(pgc.flat_CD)
+        out = Parallel(n_jobs=-1, verbose=10)(delayed(wnn.cd.flat_CD)
                                               (G_D[x], igname_D[x], core_D[x],
                                                resrange)
                                               for x in allev[m:m+step])
 
         print('Getting Js')
         wws = Parallel(n_jobs=-1, verbose=10)(
-            delayed(pgc.evr_matcher)(allev[m+n].split('/')[-1], x[2],
-                                     DDC2.get(allev[m+n].split('/')[-1], {}),
-                                     resrange) for n, x in enumerate(out))
+            delayed(wnn.cd.evr_matcher)(allev[m+n].split('/')[-1], x[2],
+                                        DDC2.get(allev[m+n].split('/')[-1],
+                                                 {}),
+                                        resrange) for n, x in enumerate(out))
 
         print('Writing Js')
         for n, x in enumerate(wws):

@@ -12,7 +12,8 @@ import json
 import glob
 from joblib import Parallel, delayed
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% Load data
 
@@ -44,10 +45,10 @@ for maxthresh, step, njo in [(2000, 500, -1), (4000, 100, -1), (8000, 50, 8),
         print(n, edf.iloc[min(n+step, len(edf)-1)]['len'])
         try:
 
-            out1 = [pgc.read_ev_data(BPATH + 'events/' + x, rdarts_rev)
+            out1 = [wnn.cd.read_ev_data(BPATH + 'events/' + x, rdarts_rev)
                     for x in edf.index[n:n + step]]
             out2 = Parallel(n_jobs=njo, verbose=10
-                            )(delayed(pgc.ev_reactions_tcd)(*x, res)
+                            )(delayed(wnn.cd.ev_reactions)(*x, res, tcd=True)
                               for x in out1 if len(x) == 4)
 
             names = [BPATH+'events/'+x for m, x in

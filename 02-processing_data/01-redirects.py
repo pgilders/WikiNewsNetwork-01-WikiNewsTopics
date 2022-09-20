@@ -10,7 +10,8 @@ import json
 # import datetime
 from calendar import monthrange
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% load data
 
@@ -24,12 +25,13 @@ mcsdf = pd.read_hdf(BPATH+'clickstream/clickstream_artlinks_201711-201812.h5')
 # %% query for redirects for core articles
 
 allcore = {y for e in eventsdf['Articles'] for y in e}
-corerd = pgc.get_redirects(allcore)
+corerd = wnn.data.get_redirects(allcore)
 
 # %% get all articles across months from clickstreams (monthset wise)
 
 allneighbours = {}
-eventsdf['MR'] = eventsdf.apply(lambda x: frozenset(pgc.getmr(x.name).keys()),
+eventsdf['MR'] = eventsdf.apply(lambda x:
+                                frozenset(wnn.utilities.getmr(x.name).keys()),
                                 axis=1)
 mrset = set(eventsdf['MR'])
 
@@ -47,13 +49,14 @@ for n, mrk in enumerate(mrset):
     corearts = {y for x in eventsdf[eventsdf['MR'] == mrk]['Articles']
                 for y in x}
 
-    allneighbours[mrk] = pgc.get_neighbours_quick_2(corearts, csd, corerd)
+    allneighbours[mrk] = wnn.processing.get_neighbours_quick(corearts, csd,
+                                                             corerd)
     del csd
 
 allneighbours_set = {y for x in allneighbours.values() if len(x) != 2
                      for y in x}
 
-# %% get all articles across months from clickstreams (event-wise, more stable?)
+# %% get all articles across months from clickstream (event-wise, more stable?)
 
 # allneighbours = {}
 # prevmrk = frozenset()
@@ -65,7 +68,7 @@ allneighbours_set = {y for x in allneighbours.values() if len(x) != 2
 #     start = date-datetime.timedelta(days=30)
 #     stop = date+datetime.timedelta(days=30)
 
-#     months = pgc.months_range(pd.to_datetime(start), pd.to_datetime(stop))
+#     months = wnn.utilities.months_range(pd.to_datetime(start), pd.to_datetime(stop))
 #     mr = {'n_%s-%s' % (x[:4], x[4:]):
 #           monthrange(int(x[:4]), int(x[4:]))[1] for x in months}
 #     mrk = frozenset(mr.keys())
@@ -82,7 +85,7 @@ allneighbours_set = {y for x in allneighbours.values() if len(x) != 2
 #         prevmrk = mrk
 #         print('done')
 
-#     allneighbours[e] = pgc.get_neighbours_quick_2(
+#     allneighbours[e] = wnn.processing.get_neighbours_quick(
 #         eventsdf.loc[e, 'Articles'], csd, corerd)
 
 # allneighbours_set = {y for x in allneighbours.values() if len(x) != 2
@@ -95,11 +98,11 @@ with open('support_data/allneighbours.json', 'w+') as f:
 # %% fix redirects
 
 print('redirects')
-m_map = pgc.fix_redirects(allneighbours_set)
+m_map = wnn.data.fix_redirects(allneighbours_set)
 
-rd_arts_map = pgc.get_redirects({m_map.get(x.replace('_', ' '),
-                                           x.replace('_', ' '))
-                                 for x in allneighbours_set})
+rd_arts_map = wnn.data.get_redirects({m_map.get(x.replace('_', ' '),
+                                                x.replace('_', ' '))
+                                      for x in allneighbours_set})
 
 
 rd_arts_map = {**corerd, **rd_arts_map}

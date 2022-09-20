@@ -10,7 +10,8 @@ import json
 from calendar import monthrange
 import pandas as pd
 # from joblib import Parallel, delayed
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% load data
 
@@ -36,7 +37,8 @@ eventsdf = pd.read_hdf('support_data/eventsdf.h5')
 # %% generate edgelists for each event
 
 errors = []
-eventsdf['MR'] = eventsdf.apply(lambda x: frozenset(pgc.getmr(x.name).keys()),
+eventsdf['MR'] = eventsdf.apply(lambda x:
+                                frozenset(wnn.utilities.getmr(x.name).keys()),
                                 axis=1)
 mrset = set(eventsdf['MR'])
 
@@ -59,8 +61,9 @@ for mn, mrk in enumerate(mrset):
         print('%.2f %%' % (100*n/len(events)))
         try:
             # evwriter = Parallel(n_jobs=-1, verbose=5)(delayed(getel)(x) for x in events[n:n+24])
-            evwriter = [pgc.getel_2(x, csd, redir_arts_map, rdarts_rev,
-                                    eventsdf) for x in events[n:n+100]]
+            evwriter = [wnn.processing.getel(x, csd, redir_arts_map,
+                                             rdarts_rev, eventsdf)
+                        for x in events[n:n+100]]
             for e in evwriter:
                 if len(e) == 2:
                     e[1].to_hdf(BPATH + 'events/' + e[0].replace('/', ':')

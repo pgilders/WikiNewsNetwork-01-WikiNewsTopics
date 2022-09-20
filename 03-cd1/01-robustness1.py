@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import clusim.sim as sim
 import matplotlib.pyplot as plt
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 
 plt.style.use('seaborn-darkgrid')
@@ -41,7 +42,8 @@ evlsn = pd.read_hdf('support_data/evlsN.h5', key='df')
 random.seed(100)
 evsample = random.sample(list(evlsn.index), 100)
 edf = evlsn.loc[evsample].sort_values('len')
-out1 = [pgc.read_ev_data(BPATH + 'events/' + x, rdarts_rev) for x in edf.index]
+out1 = [wnn.cd.read_ev_data(BPATH + 'events/' + x, rdarts_rev)
+        for x in edf.index]
 
 # %% Load existing data
 
@@ -64,8 +66,8 @@ for res in np.exp(np.arange(-9, 0.1, 1)):
         continue
     try:
 
-        out2 = Parallel(n_jobs=-1, verbose=10)(delayed(pgc.ev_reactions)(*x,
-                                                                         res)
+        out2 = Parallel(n_jobs=-1, verbose=10)(delayed(wnn.cd.ev_reactions
+                                                       )(*x, res)
                                                for x in out1 if len(x) == 4)
 
         for n, x in enumerate(out2):

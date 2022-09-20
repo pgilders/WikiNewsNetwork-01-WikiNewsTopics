@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import leidenalg as la
 import matplotlib.pyplot as plt
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 
 plt.style.use('seaborn-darkgrid')
@@ -72,7 +73,7 @@ pi.to_hdf('support_data/H_partitions.h5', key='df')
 pi = pd.read_hdf('support_data/H_partitions.h5', key='df')
 
 sims = Parallel(n_jobs=4, verbose=10)(
-    delayed(pgc.H_sim)(pi[[pi.columns[n-1], pi.columns[n]]].dropna().values)
+    delayed(wnn.cd.H_sim)(pi[[pi.columns[n-1], pi.columns[n]]].dropna().values)
     for n in range(1, len(pi.columns)))
 
 pd.Series([x[0] for x in sims],

@@ -15,7 +15,8 @@ import os
 import glob
 from joblib import Parallel, delayed
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 BPATH = ''
 
@@ -51,9 +52,9 @@ for maxthresh, step, njo in [(4000, 384, -1), (12000, 256, -1),
         try:
 
             out2 = Parallel(n_jobs=njo, verbose=10
-                            )(delayed(pgc.server_tcd)(BPATH + 'events_N/' +
-                                                      str(namedictrev[x]),
-                                                      rdarts_rev, res)
+                            )(delayed(wnn.cd.server_tcd)(BPATH + 'events_N/' +
+                                                         str(namedictrev[x]),
+                                                         rdarts_rev, res)
                               for x in edf.index[n:n + step])
 
             names = [BPATH+'events_out_N/'+str(namedictrev[x]) for m, x in
@@ -65,7 +66,7 @@ for maxthresh, step, njo in [(4000, 384, -1), (12000, 256, -1),
                 try:
                     try:
                         os.mkdir(names[m])
-                    except:
+                    except FileExistsError:
                         print('Directory exists')
                     i[0].to_hdf('%s/membdf.h5' % names[m], key='df')
                     for k, v in i[1].items():

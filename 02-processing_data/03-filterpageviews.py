@@ -13,15 +13,18 @@ import glob
 from dask.diagnostics import ProgressBar
 import dask.dataframe as dd
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
+
 ProgressBar().register()
 
 # %% Load data
 
 BPATH = '/Volumes/PGPassport/DPhil redo data/'
 
-montharticles = {k: set() for k in pgc.months_range(pd.to_datetime('20171101'),
-                                                    pd.to_datetime('20181231'))}
+montharticles = {k: set()
+                 for k in wnn.utilities.months_range(pd.to_datetime('20171101'),
+                                                     pd.to_datetime('20181231'))}
 allels = glob.glob(BPATH + 'events/*/all_el100NNN.h5')
 
 with open('support_data/redir_arts_map.json', 'r') as json_data:
@@ -54,7 +57,7 @@ else:
         date = datetime.datetime.strptime(e.split('events/')[-1][:8], '%Y%m%d')
         start = date - datetime.timedelta(days=30)
         stop = date + datetime.timedelta(days=30)
-        mr = pgc.months_range(start, stop)
+        mr = wnn.utilities.months_range(start, stop)
         for m in mr:
             montharticles[m] |= allarts
 
@@ -69,7 +72,8 @@ for i in pvfiles:
     try:
         y = i.split('pagecounts-')[1][:4]
         m = i.split('pagecounts-')[1][5:7]
-        if os.path.exists(BPATH + 'pageviews/daily/daily_t_series_%s.h5' % (y+m)):
+        if os.path.exists(BPATH + 'pageviews/daily/daily_t_series_%s.h5'
+                          % (y+m)):
             print(i, 'exists')
             continue
 
@@ -97,8 +101,12 @@ for i in pvfiles:
         del dfr, common, marticles
 
         print('getting timeseries', len(t_s))
-        timeseries = t_s.map_partitions(lambda df: df.apply(lambda x: pgc.text_to_tseries(
-            x, int(y), int(m)))).compute(scheduler='processes', num_workers=10)
+        timeseries = t_s.map_partitions(lambda df:
+                                        df.apply(lambda x:
+                                                 wnn.data.text_to_tseries(
+                                                     x, int(y), int(m)))
+                                        ).compute(scheduler='processes',
+                                                  num_workers=10)
 
         print('aggregating')
         del t_s

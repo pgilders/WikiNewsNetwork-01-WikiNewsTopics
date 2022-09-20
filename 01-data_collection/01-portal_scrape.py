@@ -8,12 +8,14 @@ Created on Thu May 19 15:58:19 2022
 import os
 import unicodedata
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% Scrape portal
 
-sdf = pgc.wiki_news_articles([x.strftime('%B_%Y') for x in
-                              pd.date_range('20171201', '20181130', freq='m')])
+sdf = wnn.data.wiki_news_articles([x.strftime('%B_%Y') for x in
+                                   pd.date_range('20171201', '20181130',
+                                                 freq='m')])
 
 # %% Clean data
 
@@ -41,9 +43,9 @@ sdf['Category'] = sdf['Category'].apply(lambda x: catmap.get(x.strip().lower(),
 allarticles = {y for x in sdf['Articles'] for y in x}
 rdmap = {}
 idmap = {}
-for c in pgc.chunks(list(allarticles), 50):
-    for q in pgc.query({'titles': '|'.join(c),
-                        'redirects': ''}):
+for c in wnn.data.chunks(list(allarticles), 50):
+    for q in wnn.data.query({'titles': '|'.join(c),
+                             'redirects': ''}):
         if 'redirects' in q.keys():
             for r in q['redirects']:
                 rdmap[r['from']] = r['to']

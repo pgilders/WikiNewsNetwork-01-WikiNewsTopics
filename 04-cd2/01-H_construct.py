@@ -11,7 +11,8 @@ Created on Tue May 17 18:07:36 2022
 import glob
 import json
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% Load data
 
@@ -43,7 +44,8 @@ for n in range(0, lc, int(1E6)):
     if n % 10000000 == 0:
         print('%.2f %%' % (100*n/lc))
 
-    jacsw = [pgc.wjac(DDC[x[0]], DDC[x[1]]) for x in combos[n:n+int(1E6)]]
+    jacsw = [wnn.utilities.wjac(DDC[x[0]], DDC[x[1]])
+             for x in combos[n:n+int(1E6)]]
 
     with open(BPATH + 'evr_similarities/jacsw%.1f.json' % (n/1E6), 'w+') as f:
         json.dump(jacsw, f)

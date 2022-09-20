@@ -14,8 +14,8 @@ import glob
 from sklearn.preprocessing import RobustScaler
 import pandas as pd
 import numpy as np
-import functions1 as pgc
-
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% Load data
 
@@ -52,7 +52,7 @@ remaining = sorted(set(events)-set(evlsn.index))
 e2el = {}
 for n in range(0, len(events), 100):
     print(n/len(events))
-    evlt = [pgc.getevls_2(x, evlsn, tsl, rdarts_rev, BPATH+'events/')
+    evlt = [wnn.processing.getevls(x, evlsn, tsl, rdarts_rev, BPATH+'events/')
             for x in events[n:n+100]]
     # evlt = Parallel(n_jobs=-1, verbose=5)(delayed(getevls)(x)
     #                                       for x in events[n:n+100])
@@ -96,7 +96,8 @@ for q, row in enumerate(edf.iterrows()):
         date = datetime.datetime.strptime(i[:8], '%Y%m%d')
         start = date-datetime.timedelta(days=30)
         stop = date+datetime.timedelta(days=30)
-        months = pgc.months_range(pd.to_datetime(start), pd.to_datetime(stop))
+        months = wnn.utilities.months_range(pd.to_datetime(start),
+                                            pd.to_datetime(stop))
 
         adj = pd.read_hdf(BPATH + 'events/%s/%s' % (i, adjname))
         ts = pd.read_hdf(BPATH + 'events/%s/%s' % (i, tsname))
@@ -108,7 +109,7 @@ for q, row in enumerate(edf.iterrows()):
         # print('get scores')
         pd.Series(ts.columns).to_hdf(BPATH + 'events/%s/%s' % (i, colt),
                                      key='df')
-        pcsel, ixs = pgc.rolling_pearson_ixs(tsxv, adj)
+        pcsel, ixs = wnn.processing.rolling_pearson_ixs(tsxv, adj)
         # del scorelist
 
         # print('writing')

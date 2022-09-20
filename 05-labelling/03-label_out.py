@@ -7,7 +7,8 @@ Created on Wed Aug 10 15:20:32 2022
 """
 
 import pandas as pd
-import functions1 as pgc
+# import functions1 as pgc
+import WikiNewsNetwork as wnn
 
 # %% Import data
 meanwj = pd.read_hdf('support_data/mean_topic_props.h5', key='df')
@@ -45,6 +46,6 @@ for f in ['count', 'PROM', 'MAG', 'DEV']:
 
 odfv = pd.DataFrame()
 for f in ['count', 'PROM', 'MAG', 'DEV']:
-    odfv[f] = outdf[f].apply(lambda x: pgc.colourer(x, labelling))
+    odfv[f] = outdf[f].apply(lambda x: wnn.utilities.colourer(x, labelling))
 
 odfv.columns = ['# Event Reactions', 'Prominence', 'Magnitude', 'Deviance']
