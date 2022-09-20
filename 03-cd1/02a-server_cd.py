@@ -24,7 +24,7 @@ with open('support_data/redir_arts_map.json') as json_data:
     redir_arts_map = json.load(json_data)
     json_data.close()
 
-# dict of folder names as filename limits stricter on server
+# dict of folder names, since filename limits stricter on server
 with open('support_data/rem_folders.json') as json_data:
     namedict = json.load(json_data)
     json_data.close()

@@ -14,8 +14,8 @@ import numpy as np
 import sklearn.metrics
 from clusim.clustering import Clustering
 import clusim.sim as sim
-import utilities
-import processing
+import WikiNewsNetwork.utilities as utilities
+import WikiNewsNetwork.processing as processing
 
 # %% Temporal community detection
 

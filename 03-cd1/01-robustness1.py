@@ -35,7 +35,7 @@ with open('support_data/redir_arts_map.json') as json_data:
 
 rdarts_rev = {x: k for k, v in redir_arts_map.items() for x in v}
 
-evlsn = pd.read_hdf('support_data/evlsN.h5', key='df')
+evlsn = pd.read_hdf(BPATH + 'aux_data/evlsN.h5', key='df')
 
 # %% Sample events and read graphs
 

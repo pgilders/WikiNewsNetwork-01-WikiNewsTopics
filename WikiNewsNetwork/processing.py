@@ -10,7 +10,7 @@ from calendar import monthrange
 import datetime
 import pandas as pd
 import numpy as np
-from utilities import months_range
+from WikiNewsNetwork.utilities import months_range
 
 
 # %% Network functions
