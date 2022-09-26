@@ -35,9 +35,8 @@ for n, x in enumerate(DD):
 
 # %%
 for f in ['count', 'PROM', 'MAG', 'DEV']:
-    ixs = meanwj.sort_values(f, ascending=False)[(meanwj['count'] >= 10) &
-                                                 (meanwj['Name'].isna())
-                                                 ].iloc[:20].index
+    ixs = meanwj.sort_values(f, ascending=False)[
+        meanwj['count'] >= 10].iloc[:20].index  # get top 20 labels for feature
     for i in ixs:
         print(i, len(ixs))
         evrs = sorted(set(gjdf[gjdf['comm'] == i].index))
@@ -77,3 +76,22 @@ for f in ['count', 'PROM', 'MAG', 'DEV']:
 n_labellings = len(glob.glob('support_data/topic_labels_*'))
 meanwj.dropna().to_hdf('support_data/topic_labels_%d.h5' % (n_labellings+1),
                        key='df')
+
+# %%
+# Author's note
+# =============================================================================
+# The version of this file used for labelling included a condition for
+# (meanwj['Name'].isna()) in line 38. As such, for each feature, the code would
+# return the top 20 unlabelled topics. This means that extra topics were
+# labelled beyond the top 20 in each feature (since some topics appear in the
+# true top 20 across several lists). The extra topic labels are preserved for
+# transparency, but are not included in further analysis since they were
+# dependent on the ordering of the features. The extra labels were identified
+# by re-sorting the dataframe on each feature and collecting the topic IDs that
+# did not appear in any of the top 20s.
+#
+#
+# All labels recorded in file: support_data/label agreement (extra labels).xlsx
+# Labels used for presentation and accuracy calculations going forward are in
+# file: support_data/label agreement.xlsx
+# =============================================================================
