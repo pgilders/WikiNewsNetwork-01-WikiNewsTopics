@@ -74,7 +74,7 @@ for n in range(0, len(events), 100):
     evlsn.to_hdf('support_data/evlsN.h5', key='df', mode='w')
 
 
-# %% Generate temporal network simtgraph5NN.npz etc
+# %% Generate temporal network simtgraphelNN.npz etc
 
 edf = evlsn.copy()
 edf = edf[edf['len'] > 0].sort_values('len')
