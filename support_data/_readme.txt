@@ -61,6 +61,10 @@ res_clusims.h5
 CluSim for different resolutions in robustness check in temporal community detection.
 Used in: 03-cd1/01-robustness1.py
 
+ss_scores.h5
+Structural similarity scores for all Event Reactions.
+Used in: 03-cd1/03-ss_scores.py
+
 topic_labels_1.h5
 First coder's labels for Topics of Attention.
 Used in: 05-labelling/02-labelling.py
