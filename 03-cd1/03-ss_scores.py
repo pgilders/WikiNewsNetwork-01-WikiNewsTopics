@@ -121,13 +121,13 @@ allwj = pd.read_hdf('support_data/ss_scores.h5', key='df')
 
 plt.figure(figsize=[16, 10])
 sns.kdeplot(allwj, clip=(0, 1), bw_adjust=0.3, fill=True,
-            linewidth=params['lines.linewidth'], alpha=1)
+            linewidth=params['lines.linewidth'])
 plt.ylim([0, 1.8])
 plt.yticks(np.arange(0, 2, 0.25))
 plt.title('Structural Similarity Distribution')
 plt.xlabel('Structural Similarity')
 plt.savefig('figures/ssdist.svg')
-plt.savefig('figures/ssdist.eps')
+plt.savefig('figures/ssdist.pdf')
 plt.savefig('figures/ssdist.png')
 plt.show()
 
