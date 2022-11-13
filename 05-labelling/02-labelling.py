@@ -3,7 +3,7 @@
 """
 Created on Tue May 17 17:46:08 2022
 
-@author: Patrick
+@author: 
 """
 
 import glob

@@ -5,7 +5,7 @@ Created on Tue May 17 15:36:29 2022
 
 Get Structural Similarity Scores
 
-@author: Patrick
+@author: 
 """
 
 import glob

@@ -5,7 +5,7 @@ Created on Tue May 17 18:07:36 2022
 
 
 
-@author: Patrick
+@author: 
 """
 
 import glob

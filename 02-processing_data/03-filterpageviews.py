@@ -3,7 +3,7 @@
 """
 Created on Tue May 31 10:40:17 2022
 
-@author: Patrick
+@author: 
 """
 import json
 import datetime

@@ -3,7 +3,7 @@
 """
 Created on Tue Sep 20 15:21:54 2022
 
-@author: Patrick
+@author: 
 """
 import WikiNewsNetwork.utilities as utilities
 import WikiNewsNetwork.data as data

@@ -5,7 +5,7 @@ Created on Tue May 17 14:57:12 2022
 
 Initial community detection on news event networks
 
-@author: Patrick
+@author: 
 """
 
 import json

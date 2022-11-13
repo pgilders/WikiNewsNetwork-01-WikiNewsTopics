@@ -7,7 +7,7 @@ Initial community detection on news event networks
 
 Script for AWS server for remaining events, more powerful than my laptop...
 
-@author: Patrick
+@author: 
 """
 
 import json

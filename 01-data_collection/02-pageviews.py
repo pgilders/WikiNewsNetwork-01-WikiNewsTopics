@@ -3,7 +3,7 @@
 """
 Created on Tue May 31 13:20:03 2022
 
-@author: Patrick
+@author: 
 """
 
 import datetime

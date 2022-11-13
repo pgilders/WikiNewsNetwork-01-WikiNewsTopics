@@ -3,7 +3,7 @@
 """
 Created on Thu Aug 11 15:20:05 2022
 
-@author: Patrick
+@author: 
 """
 
 import calendar

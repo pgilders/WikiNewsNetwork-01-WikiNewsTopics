@@ -3,7 +3,7 @@
 """
 Created on Thu Aug 11 15:21:20 2022
 
-@author: Patrick
+@author: 
 """
 
 from calendar import monthrange

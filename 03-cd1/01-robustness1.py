@@ -3,7 +3,7 @@
 """
 Created on Wed May 18 17:27:01 2022
 
-@author: Patrick
+@author: 
 """
 
 import random

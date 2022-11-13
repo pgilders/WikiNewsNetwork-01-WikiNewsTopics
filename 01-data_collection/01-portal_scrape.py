@@ -3,7 +3,7 @@
 """
 Created on Thu May 19 15:58:19 2022
 
-@author: Patrick
+@author: 
 """
 import os
 import unicodedata
