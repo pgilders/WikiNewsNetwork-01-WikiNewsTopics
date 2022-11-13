@@ -7,7 +7,7 @@ Created on Wed Aug 10 15:20:32 2022
 """
 
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% Import data

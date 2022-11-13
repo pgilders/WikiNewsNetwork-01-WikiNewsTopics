@@ -14,12 +14,12 @@ import glob
 from sklearn.preprocessing import RobustScaler
 import pandas as pd
 import numpy as np
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 events = [x.split('/')[-2]
           for x in glob.glob(BPATH + 'events/*/all_el100NNN.h5')]

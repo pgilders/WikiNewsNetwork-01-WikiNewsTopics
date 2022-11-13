@@ -14,7 +14,7 @@ import pandas as pd
 
 
 # %% Load data
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 with open(BPATH + 'aux_data/H_edgelist.json', 'r') as f:
     tuples = json.load(f)

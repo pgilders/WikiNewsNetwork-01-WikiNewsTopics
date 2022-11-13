@@ -8,7 +8,7 @@ Created on Thu May 19 15:58:19 2022
 import os
 import unicodedata
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% Scrape portal

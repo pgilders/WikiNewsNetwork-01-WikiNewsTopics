@@ -13,14 +13,14 @@ import glob
 from dask.diagnostics import ProgressBar
 import dask.dataframe as dd
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 ProgressBar().register()
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 montharticles = {k: set()
                  for k in wnn.utilities.months_range(pd.to_datetime('20171101'),

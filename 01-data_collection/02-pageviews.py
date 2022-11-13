@@ -9,13 +9,13 @@ Created on Tue May 31 13:20:03 2022
 import datetime
 import shutil
 import requests
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% download pageview files
 # (originally done manually but have added script for completeness)
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 for ym in wnn.utilities.months_range(datetime.datetime(2017, 11, 1),
                                      datetime.datetime(2018, 12, 1)):

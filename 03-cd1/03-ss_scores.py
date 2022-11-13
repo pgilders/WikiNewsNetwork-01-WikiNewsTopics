@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 plt.style.use('seaborn-darkgrid')
@@ -24,7 +24,7 @@ with open('figures/figurestyle.json', 'r') as f:
 plt.rcParams.update(params)
 
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 # %% Load data
 

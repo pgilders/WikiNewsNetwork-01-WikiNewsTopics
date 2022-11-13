@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import clusim.sim as sim
 import matplotlib.pyplot as plt
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 
@@ -27,7 +27,7 @@ plt.rcParams.update(params)
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 with open('support_data/redir_arts_map.json') as json_data:
     redir_arts_map = json.load(json_data)

@@ -15,7 +15,7 @@ import os
 import glob
 from joblib import Parallel, delayed
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 BPATH = ''

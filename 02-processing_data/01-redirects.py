@@ -10,12 +10,12 @@ import json
 # import datetime
 from calendar import monthrange
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 eventsdf = pd.read_hdf('support_data/eventsdf.h5')
 

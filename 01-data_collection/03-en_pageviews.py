@@ -10,7 +10,7 @@ import glob
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 summfile = open(BPATH+'pageviews/raw/summ.txt', "w+")
 pvfiles = sorted(glob.glob(BPATH+'pageviews/raw/pagecounts-*-views-ge-5'))

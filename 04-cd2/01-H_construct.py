@@ -11,12 +11,12 @@ Created on Tue May 17 18:07:36 2022
 import glob
 import json
 import pandas as pd
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 DD = sorted([x[:-13] for x in glob.glob(BPATH + 'events/*/tcweights.h5')])
 

@@ -10,12 +10,12 @@ import json
 from calendar import monthrange
 import pandas as pd
 # from joblib import Parallel, delayed
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 # %% load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 with open('support_data/redir_arts_map.json', 'r') as json_data:
     redir_arts_map = json.load(json_data)

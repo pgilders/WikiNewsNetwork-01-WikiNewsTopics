@@ -12,7 +12,7 @@ import pandas as pd
 
 # %% load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 cs_files = sorted(glob.glob(BPATH+'clickstream/clickstream-enwiki-*.tsv'))
 

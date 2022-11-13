@@ -12,7 +12,7 @@ import numpy as np
 
 # %% Read data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 gjdf = pd.read_hdf('support_data/evr_props.h5', key='df')
 meanwj = pd.read_hdf('support_data/mean_topic_props.h5', key='df')

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import leidenalg as la
 import matplotlib.pyplot as plt
-# import functions1 as pgc
+
 import WikiNewsNetwork as wnn
 
 
@@ -27,7 +27,7 @@ plt.rcParams.update(params)
 
 # %% Load data
 
-BPATH = '/Volumes/PGPassport/DPhil redo data/'
+BPATH = ''
 
 with open(BPATH + 'aux_data/H_edgelist.json', 'r') as f:
     tuples = json.load(f)
