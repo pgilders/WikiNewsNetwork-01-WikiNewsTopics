@@ -12,6 +12,7 @@ import glob
 import json
 from joblib import Parallel, delayed
 import pandas as pd
+import igraph
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -111,6 +112,7 @@ for m in range(0, len(allev), step):
         print(ex)
         Eerrs.append((m, ex))
 
+
 # %% load df with all SS scores
 
 wjacs = sorted(glob.glob(BPATH + 'events/*/wjac.h5'))
@@ -143,3 +145,85 @@ plt.show()
 # plt.title('Structural Similarity Distribution')
 # plt.xlabel('Structural Similarity')
 # plt.show()
+
+#%% get weighted graphs
+
+# werrs = []
+# Eerrs = []
+# step = 400
+# resrange = np.exp(np.arange(-9, 0.5, 0.5))  # better res???????
+# for m in range(0, len(allev), step):
+#     print(m)
+#     try:
+
+#         print('Reading ev data')
+
+#         core_D = {}
+#         G_D = {}
+#         Gw_D = {}
+#         igname_D = {}
+        
+
+#         for n, e in enumerate(allev[m:m+step]):
+#             if n % 40 == 0:
+#                 print('%.2f %%' % (100*n/len(allev[m:m+step])))
+#             core_D[e], articles, G_D[e], igname_D[e] = wnn.cd.read_f_data(
+#                 e, rdarts_rev)
+#             w_el = pd.read_hdf(e+'/all_el100NNN.h5')
+#             w_el = w_el[['prev', 'curr', 'n']]
+#             w_el.columns = ['source', 'target', 'weight']
+#             Gw_D[e] = igraph.Graph.TupleList([tuple(x) for x in w_el.values],
+#                                        directed=True, edge_attrs=['weight'])
+#             igname_D[e] = {x.index: x['name'] for x in Gw_D[e].vs}
+
+            
+
+#         print('Reading weights')
+
+#         DDC = {}
+#         for n, x in enumerate(allev[m:m+step]):
+#             if n % 40 == 0:
+#                 print('%.2f %%' % (100*n/len(allev[m:m+step])))
+#             with pd.HDFStore(x+'/tcweights.h5', mode='r') as hdf:
+#                 for k in hdf.keys():
+#                     DDC[x + '/' + k[1:].replace('/', ':')
+#                         ] = pd.read_hdf(x+'/tcweights.h5', key=k)
+
+#         DDC2 = {}
+#         for n, (k, v) in enumerate(DDC.items()):
+#             if k.split('/')[-2] not in DDC2.keys():
+#                 DDC2[k.split('/')[-2]] = {k.split('/')[-1]: v}
+#             else:
+#                 DDC2[k.split('/')[-2]][k.split('/')[-1]] = v
+
+#         print('Running Community Detection')
+#         out = Parallel(n_jobs=-1, verbose=10)(delayed(wnn.cd.flat_CD)
+#                                               (Gw_D[x], igname_D[x], core_D[x],
+#                                                resrange, 'weight')
+#                                               for x in allev[m:m+step])
+
+#         print('Getting Js')
+#         wws = Parallel(n_jobs=-1, verbose=10)(
+#             delayed(wnn.cd.evr_matcher)(allev[m+n].split('/')[-1], x[2],
+#                                         DDC2.get(allev[m+n].split('/')[-1],
+#                                                  {}),
+#                                         resrange) for n, x in enumerate(out))
+#         wws[0][0].T.plot()
+#         plt.xscale('log')
+        
+#         print('Writing Js')
+#         for n, x in enumerate(wws):
+#             try:
+#                 x[0].to_hdf(BPATH + 'events/%s/w_wjac.h5'
+#                             % allev[m+n].split('events/')[-1], key='df')
+#                 x[1].to_hdf(BPATH + 'events/%s/w_jac.h5'
+#                             % allev[m+n].split('events/')[-1], key='df')
+#             except Exception as ex:
+#                 print(ex)
+#                 werrs.append([n, x, ex])
+
+#     except Exception as ex:
+#         print(ex)
+#         Eerrs.append((m, ex))
+
+

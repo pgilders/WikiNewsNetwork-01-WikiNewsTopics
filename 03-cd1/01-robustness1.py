@@ -14,6 +14,7 @@ from clusim.clustering import Clustering
 import numpy as np
 import pandas as pd
 import clusim.sim as sim
+import igraph
 import matplotlib.pyplot as plt
 
 import WikiNewsNetwork as wnn
@@ -45,74 +46,17 @@ edf = evlsn.loc[evsample].sort_values('len')
 out1 = [wnn.cd.read_ev_data(BPATH + 'events/' + x, rdarts_rev)
         for x in edf.index]
 
-# %% Load existing data
+#%% Run comm detection on range of resolutions, compare partitions, and save
 
-resresults = {}
-for res in np.exp(np.arange(-9, 0.1, 1)):
-    print(res)
-    try:
-        resresults[res] = [pd.read_hdf(BPATH + 'aux_data/res_select.h5',
-                                       key='%.5f_%d' % (res, n))
-                           for n in range(100)]
-    except KeyError:
-        print('No ', res)
+resrange = np.exp(np.arange(-9, 0.1, 1))       
+
+resresults, amis_df, clusims_df = wnn.cd.cd_range_test(out1, evsample, resrange,
+                                                BPATH +
+                                                'aux_data/res2_select.h5',
+                                                'support_data/res_%s.h5',
+                                                wnn.cd.ev_reactions)
 
 
-# %% Run community detection on sample over range of resolutions
-
-for res in np.exp(np.arange(-9, 0.1, 1)):
-    print(res)
-    if res in resresults:
-        continue
-    try:
-
-        out2 = Parallel(n_jobs=-1, verbose=10)(delayed(wnn.cd.ev_reactions
-                                                       )(*x, res)
-                                               for x in out1 if len(x) == 4)
-
-        for n, x in enumerate(out2):
-            x[0].to_hdf(BPATH + 'aux_data/res_select.h5',
-                        key='%.5f_%d' % (res, n), mode='a')
-        resresults[res] = [x[0] for x in out2]
-    except Exception as ex:
-        print(ex)
-
-# %% Get similarities between partitions at different resolutions
-
-amis = {}
-clusims = {}
-
-for n, e in enumerate(evsample):
-    if n % 10 == 0:
-        print("%.2f %%" % (100*n/len(evsample)))
-    midcom = pd.concat([resresults[r][n][27] for r in
-                        np.exp(np.arange(-9, 0.1, 1))], axis=1)
-    midcom.columns = np.exp(np.arange(-9, 0.1, 1))
-    mc = midcom.columns
-
-    amis[e] = [ami(midcom[[mc[c-1], mc[c]]].dropna()[mc[c-1]],
-                   midcom[[mc[c-1], mc[c]]].dropna()[mc[c]])
-               for c in range(1, len(midcom.columns))]
-
-    cs = []
-    for c in range(1, len(midcom.columns)):
-        comms = midcom[[mc[c-1], mc[c]]].dropna()
-        c1 = Clustering(elm2clu_dict={k: [v] for k, v in
-                                      dict(comms[mc[c]]).items()})
-        c2 = Clustering(elm2clu_dict={k: [v] for k, v in
-                                      dict(comms[mc[c-1]]).items()})
-        cs.append(sim.element_sim(c1, c2, alpha=0.9))
-
-    clusims[e] = cs
-
-# %% save sim data
-amis_df = pd.DataFrame(amis)
-amis_df.index = np.exp(np.arange(-8, 0.1, 1))
-clusims_df = pd.DataFrame(clusims)
-clusims_df.index = np.exp(np.arange(-8, 0.1, 1))
-
-amis_df.to_hdf('support_data/res_amis.h5', key='df')
-clusims_df.to_hdf('support_data/res_clusims.h5', key='df')
 
 # %% Plot sims
 
@@ -129,7 +73,97 @@ plt.title('Community Detection Partition Similarity')
 plt.xlabel('Resolution')
 plt.ylabel('Similarity')
 plt.legend()
-plt.savefig('figures/cdsim.svg')
-plt.savefig('figures/cdsim.eps')
-plt.savefig('figures/cdsim.png')
+for ext in ['svg', 'eps', 'pdf', 'png']:
+    plt.savefig('figures/cdsim.%s' %ext)
+plt.show()
+
+
+#%% Replace graphs with flat, unweighted versions
+
+for n, e in enumerate(edf.index):
+    # print(n, e)    
+    w_el = pd.read_hdf(BPATH+'events/'+e+'/all_el100NNN.h5')
+    w_el = w_el[['prev', 'curr', 'n']]
+    w_el.columns = ['source', 'target', 'weight']
+    w_el['weight'] = 1
+    g = igraph.Graph.TupleList([tuple(x) for x in w_el.values],
+                               directed=True, edge_attrs=['weight'])
+    ign = {x.index: x['name'] for x in g.vs}
+    
+    out1[n] = (*out1[n][:2], g, ign)
+
+
+
+#%% Run flat, uw comm detection on range of resolutions, compare partitions, and save
+  
+resrange = np.exp(np.arange(-9, 0.1, 0.5))       
+resresults, amis_df, clusims_df = wnn.cd.cd_range_test(out1, evsample, resrange,
+                                                       BPATH + 'aux_data/f_res_select.h5',
+                                                       'support_data/f_res_%s.h5',
+                                                       wnn.cd.ev_reactions_flat)
+
+
+# %% Plot flat unweighted sims
+
+amis_df = pd.read_hdf('support_data/f_res_amis.h5', key='df')
+clusims_df = pd.read_hdf('support_data/f_res_clusims.h5', key='df')
+
+plt.figure(figsize=[16, 10])
+amis_df.mean(axis=1).plot(label='AMI')
+clusims_df.mean(axis=1).plot(label='CluSim')
+# plt.ylim([0.475, 0.725])
+# plt.yticks(np.arange(0.5, 0.75, 0.05))
+plt.xscale('log')
+plt.title('Community Detection Partition Similarity')
+plt.xlabel('Resolution')
+plt.ylabel('Similarity')
+plt.legend()
+for ext in ['svg', 'eps', 'pdf', 'png']:
+    plt.savefig('figures/cdsim_f.%s' %ext)
+plt.show()
+
+#%% Replace graphs with flat, weighted versions
+
+for n, e in enumerate(edf.index):
+    # print(n, e)    
+    w_el = pd.read_hdf(BPATH+'events/'+e+'/all_el100NNN.h5')
+    w_el = w_el[['prev', 'curr', 'n']]
+    
+    w_el.columns = ['source', 'target', 'weight']
+    g = igraph.Graph.TupleList([tuple(x) for x in w_el.values],
+                               directed=True, edge_attrs=['weight'])
+    ign = {x.index: x['name'] for x in g.vs}
+    
+    out1[n] = (*out1[n][:2], g, ign)
+
+
+#%% Run flat, w comm detection on range of resolutions, compare partitions, and save
+
+resrange = np.exp(np.arange(0, 10, 0.5))
+
+resresults, amis_df, clusims_df = wnn.cd.cd_range_test(out1, evsample, resrange,
+                                                       BPATH + 'aux_data/w3_res_select.h5',
+                                                       'support_data/w3_res_%s.h5',
+                                                       wnn.cd.ev_reactions_flat,
+                                                       'weight')
+
+
+
+# %% Plot sims
+
+amis_df = pd.read_hdf('support_data/w3_res_amis.h5', key='df')
+clusims_df = pd.read_hdf('support_data/w3_res_clusims.h5', key='df')
+
+plt.figure(figsize=[16, 10])
+amis_df.mean(axis=1).plot(label='AMI')
+clusims_df.mean(axis=1).plot(label='CluSim')
+# plt.ylim([0.475, 0.725])
+# plt.yticks(np.arange(0.5, 0.75, 0.05))
+plt.xscale('log')
+plt.title('Community Detection Partition Similarity')
+plt.xlabel('Resolution')
+plt.ylabel('Similarity')
+plt.legend()
+for ext in ['svg', 'eps', 'pdf', 'png']:
+    plt.savefig('figures/cdsim_w.%s' %ext)
 plt.show()
