@@ -6,12 +6,15 @@ Created on Thu Aug 11 15:23:53 2022
 @author: 
 """
 
-
+import os
 import pandas as pd
 import igraph
 import leidenalg as la
 import numpy as np
 import sklearn.metrics
+from joblib import Parallel, delayed
+from sklearn.metrics import adjusted_mutual_info_score as ami
+from sklearn.preprocessing import RobustScaler
 from clusim.clustering import Clustering
 import clusim.sim as sim
 import WikiNewsNetwork.utilities as utilities
@@ -311,6 +314,47 @@ def ev_reactions(core, articles, glist, igname, res, tcd=False):
         return membdf, evrs, cc
     return membdf, evrs
 
+def ev_reactions_flat(core, articles, graph, igname, res, weights=None):
+    """
+    Run community detection and extract event reactions from event network.
+
+    Parameters
+    ----------
+    core : list
+        List of core articles for event.
+    articles : list
+        List of all articles in network.
+    glist : list
+        List of igraph networks for each timestep for an event.
+    igname : dict
+        List of dicts with igraph node names.
+    res : float
+        Community detection resolution.
+    tcd : Boolean, optional
+        Whether to return node community centralities. The default is False.
+
+    Returns
+    -------
+    tuple
+        membdf : DataFrame with community memberships.
+        evrs : Event reactions dictionary.
+        cc : Dict of node centralities for each event reaction (optional).
+    """
+
+    partition = la.find_partition(graph, la.CPMVertexPartition,
+                                  resolution_parameter=res,
+                                  weights=weights)
+    membdfF = pd.Series({y: n for n, x in enumerate(partition)
+                         for y in x}).sort_index()
+    membdfF.index = graph.vs['name']
+    membdfF = membdfF.sort_index()
+    mcore = set(membdfF.index)&set(core)
+    evrs = {x: list(membdfF[membdfF==x].index) for x in set(membdfF.loc[mcore])}
+    cm = {x:'---'.join(sorted(membdfF.loc[mcore][membdfF.loc[mcore]==x].index))
+          for x in set(membdfF.loc[mcore])}
+    evrs = {cm[k]:v for k, v in evrs.items()}
+
+    return membdfF, evrs
 
 def server_tcd(e, rdarts_rev, res):
     """
@@ -439,7 +483,7 @@ def read_f_data(e, rdarts_rev):
         return (e, ex)
 
 
-def flat_CD(G, igname, core, resrange):
+def flat_CD(G, igname, core, resrange, weights=None):
     """
     Run flat community detection across a range of resolutions.
 
@@ -458,7 +502,7 @@ def flat_CD(G, igname, core, resrange):
     -------
     tuple
         membdfFD : Dictionary of community memberships at each resolution.
-        collmemsFD : Dictionary of dictionaries with communities.
+        commsFD : Dictionary of dictionaries with communities.
         tcdD : Dictionary of dictionaries with community centralities.
 
     """
@@ -471,7 +515,8 @@ def flat_CD(G, igname, core, resrange):
         commsFD = {}
         for res in resrange:
             partition = la.find_partition(G, la.CPMVertexPartition,
-                                          resolution_parameter=res)
+                                          resolution_parameter=res,
+                                          weights=weights)
             membdfF = pd.Series({y: n for n, x in enumerate(partition)
                                  for y in x}).sort_index()
             membdfF.index = G.vs['name']
@@ -543,6 +588,162 @@ def evr_matcher(e, tcdD, tcdt, resrange):
         return wjdf, jdf
     except Exception as ex:
         return ['error', e, ex]
+
+# %% Robustness procedures
+
+
+def load_resresults(resdict, resrange, fpath):
+    if not os.path.exists(fpath):
+        print('filepath doesn\'t exist:', fpath)
+        return
+    for res in resrange:
+        print(res)
+        try:
+            resdict[res] = [pd.read_hdf(fpath, key='%.5f_%d' % (res, n))
+                               for n in range(100)]
+        except KeyError:
+            print('No ', res)
+
+
+def cd_test(evdata, resdict, resrange, cdmethod, fpath, *args):
+    for res in resrange:
+        print(res)
+        if res in resdict:
+            continue
+        try:   
+            out2 = Parallel(n_jobs=-1, verbose=10)(delayed(cdmethod
+                                                           )(*x, res, *args)
+                                                   for x in evdata if len(x) == 4)
+    
+            for n, x in enumerate(out2):
+                x[0].to_hdf(fpath, key='%.5f_%d' % (res, n), mode='a')
+            resdict[res] = [x[0] for x in out2]
+        except Exception as ex:
+            # raise
+            print(ex)
+            
+def comm_similarities(events, resdict, resrange):
+    amis = {}
+    clusims = {}
+    
+    for n, e in enumerate(events):
+        if n % 10 == 0:
+            print("%.2f %%" % (100*n/len(events)))
+        midcom = pd.concat([resdict[r][n] for r in resrange], axis=1)
+        midcom.columns = resrange
+        mc = midcom.columns
+    
+        amis[e] = [ami(midcom[[mc[c-1], mc[c]]].dropna()[mc[c-1]],
+                       midcom[[mc[c-1], mc[c]]].dropna()[mc[c]])
+                   for c in range(1, len(midcom.columns))]
+    
+        cs = []
+        for c in range(1, len(midcom.columns)):
+            comms = midcom[[mc[c-1], mc[c]]].dropna()
+            c1 = Clustering(elm2clu_dict={k: [v] for k, v in
+                                          dict(comms[mc[c]]).items()})
+            c2 = Clustering(elm2clu_dict={k: [v] for k, v in
+                                          dict(comms[mc[c-1]]).items()})
+            cs.append(sim.element_sim(c1, c2, alpha=0.9))
+    
+        clusims[e] = cs
+    return amis, clusims
+
+def cd_range_test(evdata, evsample, resrange, r_fpath, c_fpath, cdmethod, *args):
+
+    resresults = {}   
+    load_resresults(resresults, resrange, r_fpath)
+    cd_test(evdata, resresults, resrange, cdmethod, r_fpath, args)
+    if not (os.path.exists(c_fpath %'amis')&os.path.exists(c_fpath %'clusims')):    
+        amis, clusims = comm_similarities(evsample, resresults, resrange)    
+        amis_df = pd.DataFrame(amis)
+        amis_df.index = resrange[1:]
+        clusims_df = pd.DataFrame(clusims) 
+        clusims_df.index = resrange[1:]
+
+        amis_df.to_hdf(c_fpath %'amis', key='df')
+        clusims_df.to_hdf(c_fpath %'clusims', key='df')
+    else:
+        amis_df = pd.read_hdf(c_fpath %'amis', key='df')
+        clusims_df = pd.read_hdf(c_fpath %'clusims', key='df')   
+        
+    return resresults, amis_df, clusims_df
+
+#%% Evaluate communities
+
+def get_mdev(cc, ts):
+    tsc = ts[set(cc)&set(ts.columns)]
+    scaler = RobustScaler()
+    tsm = pd.Series(scaler.fit_transform(pd.DataFrame(tsc.mean(axis=1).T)
+                                         )[:,0], index = range(-30, 31))
+    mdev = tsm.loc[-1:1].max()   
+    return mdev, tsc
+
+
+def captured_excess(c, ts, end=None, thresh=3):
+    rt = 0
+    for k, v in c.items():
+        mdev, tsc = get_mdev(c[k], ts)
+        if mdev > thresh:
+            rt += (tsc.loc[0:end] - tsc.median()).sum().sum()
+    return rt
+
+
+def pad_to_square(a, pad_value=0):
+    m = a.reshape((a.shape[0], -1))
+    padded = pad_value * np.ones(2 * [max(m.shape)], dtype=m.dtype)
+    padded[0:m.shape[0], 0:m.shape[1]] = m
+    return padded
+
+
+def create_diag(a):
+    t = False
+    if a.shape[0] > a.shape[1]:
+        t=True
+        a = a.T
+    a = pad_to_square(a)
+    max_rows = a.max(axis=1)
+    # max_cols = a.max(axis=0)
+    colswaps = {}
+    for n, m in enumerate(max_rows):
+        if m>0:
+            c1, c2 = np.where(a[n:n+1,]==m)
+            a[:,[n,c2[0]]] = a[:,[c2[0],n]]
+            colswaps[n] = c2[0]
+        else:
+            colswaps[n] = n
+
+    order = np.argsort(np.diag(a))[::-1]
+    if t:
+        a = a.T   
+   
+    return a, colswaps, order
+
+
+def rearrange_comms(comms1, comms2):
+    sims = np.array([[utilities.jac(v1, v2) for v1 in comms1.values()]
+                     for v2 in comms2.values()])
+    
+    mat, cswap, order = create_diag(sims)
+    if sims.shape[0] <= sims.shape[1]:      
+        comms_l = list(comms1.items())
+        for k in range(len(comms1)):
+            c1 = comms_l[k]
+            c2 = comms_l[cswap[k]]
+            comms_l[k] = c2
+            comms_l[cswap[k]] = c1
+        comms1 = dict(comms_l)
+    else:
+        commst_l = list(comms2.items())
+        for k in range(len(comms2)):
+            c1 = commst_l[k]
+            c2 = commst_l[cswap[k]]
+            commst_l[k] = c2
+            commst_l[cswap[k]] = c1
+        comms2 = dict(commst_l)
+        
+    return comms1, comms2
+
 
 # %% Higher level community detection
 
