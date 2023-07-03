@@ -3,13 +3,14 @@
 """
 Created on Thu Aug 11 15:21:20 2022
 
-@author: 
+@author:
 """
 
 from calendar import monthrange
 import datetime
 import pandas as pd
 import numpy as np
+import igraph
 from WikiNewsNetwork.utilities import months_range
 
 
@@ -285,7 +286,7 @@ def rolling_pearson_ixs(timeseries, adj):
     ----------
     timeseries : NumPy Array
         Time series of page views for articles in network.
-    adj : NumPy Array
+    adj : DataFrame
         Adjacency matrix of network.
 
     Returns
@@ -301,6 +302,75 @@ def rolling_pearson_ixs(timeseries, adj):
     return np.array([pearsonr_ixs(timeseries[x:x+7], ixs)
                      for x in range(0, len(timeseries)-6)]), ixs
 
+def rolling_sim_ixs(timeseries, adj, sim=pearsonr_ixs, w=7):
+    """
+    Calculate rolling general correlation between time series for indexes in ixs.
+
+    Only the correlations between indexes in ixs is calculated and returned.
+    Order of correlations returned at each time step matches order of indexes
+    supplied.
+
+    Parameters
+    ----------
+    timeseries : NumPy Array
+        Time series of page views for articles in network.
+    adj : NumPy Array
+        Adjacency matrix of network.
+    sim : Function
+        Pairwise similarity function
+    w : int
+        Rolling window size
+
+    Returns
+    -------
+    NumPy Array
+        Rolling (7 day) Pearson correlation between time series at index
+        combinations at each time step (2D). An edgelist for each time step.
+    ixs : NumPy Array
+        Array of indexes where edge is present and correlation is calculated.
+
+    """
+    ixs = np.argwhere(adj)
+    return np.array([sim(timeseries[x:x+w], ixs)
+                     for x in range(0, len(timeseries)-(w-1))]), ixs
+
+
+def rolling_sims_to_igraph(el, ixs, artixdict):
+    """
+    Convert rolling similarity edge scores to a temporal network. In this case
+    a list of igraph graphs.
+
+    Parameters
+    ----------
+    el : NumPy Array
+        Edgelist weights.
+    ixs : NumPy Array
+        Index pairs representing edgelist source/targets.
+    artixdict : dict
+        Mapping of indexes to article names.
+
+    Returns
+    -------
+    glist : list
+        List of igraph graphs.
+
+    """
+    
+    
+    glist = []
+    for n in range(el.shape[0]):
+        sel = pd.DataFrame(np.append(ixs,
+                                     np.nan_to_num(el[n].reshape(el.shape[1], 1)),
+                                     axis=1))
+        sel.columns = ['source', 'target', 'weight']
+        sel['source'] = sel['source'].map(artixdict)
+        sel['target'] = sel['target'].map(artixdict)
+        tuples = [tuple(x) for x in sel.values]
+        glist.append(igraph.Graph.TupleList(tuples, directed=False,
+                                            edge_attrs=['weight']))
+        glist[n].vs["slice"] = n
+
+    return glist
 
 # def getadj(el):
 #     elt = [(i[1]['prev'], i[1]['curr'])

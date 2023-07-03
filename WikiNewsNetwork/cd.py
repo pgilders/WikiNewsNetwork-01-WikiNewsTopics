@@ -129,6 +129,93 @@ def temporal_community_detection(glist, res, interslice_weight=1):
         # raise
         return ['error', ex]
 
+def cd_demo(timeseries, network, similarity_metric=processing.pearsonr_ixs, sim_kwargs={},
+            algorithm=la.find_partition_temporal,
+            alg_kwargs={'partition_type': la.CPMVertexPartition,
+                        'vertex_id_attr': 'name',
+                        'interslice_weight': 1, 'resolution_parameter': 1},
+            res=None, tau=None,
+            mode='igraph'):
+    """
+    
+
+    Parameters
+    ----------
+    timeseries : Pandas DataFrame / Numpy Array
+        Scaled time series for page views of each article.
+    network : Pandas DataFrame / igraph
+        Representing the network.
+    similarity_metric : Function, optional
+        Function to calculate time series similarity.
+        The default is processing.pearsonr_ixs.
+    sim_kwargs : dict, optional
+        Arguments for similarity measure. The default is {}.
+    algorithm : Function, optional
+        Community detection algorithm to be applied to temporal network.
+        The default is la.find_partition_temporal.
+    alg_kwargs : dict, optional
+        Arguments for community detection algorithm.
+        The default is {'partition_type': la.CPMVertexPartition,
+                        'vertex_id_attr': 'name', 'interslice_weight': 1,
+                        'resolution_parameter': 1}.
+    res : float, optional
+        Resolution parameter, overrides alg_kwargs. The default is None.
+    tau : float, optional
+        Interlayer coupling parameter, overrides alg_kwargs. The default is None.
+    mode : str, optional
+        Future parameter to adapt for networkx & other input.
+        The default is 'igraph'.
+
+    Returns
+    -------
+    cd_output :
+        Output of the supplied temporal community detection function.
+    nodename_dict : dict
+        Mapping of node index to names for each network layer.
+
+    """
+
+    for k, v in {'resolution_parameter': res, 'interslice_weight': tau}.items():
+        if v:
+            alg_kwargs[k] = v
+
+    if type(network) == pd.DataFrame:
+        adj = network.values.copy()
+        nodenames = list(network.columns)
+    elif mode == 'igraph':
+        adj = np.array(network.get_adjacency().data)  # upper/lower/both?
+        nodenames = list(network.vs['name'])
+    # elif mode == 'networkx': # future: add nx support
+    #     adj = nx.to_numpy_array(network)
+    #     nodenames = list(network.nodes)
+    else:
+        raise
+
+    if type(timeseries) == np.ndarray:
+        ts_array = timeseries.copy()
+    elif type(timeseries) == pd.DataFrame:
+        ts_array = np.array(timeseries[nodenames])
+    else:
+        raise
+
+    nodename_idx_dict = {n: x for n, x in enumerate(nodenames)}
+
+    # future: integrate weights here somehow?
+    el, ixs = processing.rolling_sim_ixs(ts_array, adj, sim=similarity_metric,
+                              **sim_kwargs)
+
+    if mode == 'igraph':
+        processed_net = processing.rolling_sims_to_igraph(el, ixs, nodename_idx_dict)
+        nodename_dict = {n: processed_net[n].vs['name'] for n in range(len(processed_net))}
+    # elif mode == 'networkx': # future: add nx support
+        # processed_net = rolling_sims_to_networkx(el, ixs, nodename_idx_dict)
+        # pass
+    else:
+        raise
+
+    cd_output = algorithm(processed_net, **alg_kwargs)
+
+    return cd_output, nodename_dict
 
 def extract_event_reactions(membdf, core, articles):
     """
